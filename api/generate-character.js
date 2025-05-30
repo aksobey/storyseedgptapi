@@ -21,12 +21,10 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: "You are a creative assistant that writes character descriptions.",
+          content:
+            "You are a creative assistant that writes character descriptions.",
         },
-        {
-          role: "user",
-          content: prompt,
-        },
+        { role: "user", content: prompt },
       ],
       temperature: 0.8,
       max_tokens: 300,
@@ -34,12 +32,8 @@ export default async function handler(req, res) {
 
     const reply = completion.choices[0].message.content;
     return res.status(200).json({ reply });
-
   } catch (err) {
-    console.error("OpenAI API error:", err);
-    return res.status(500).json({
-      error: err.message || "Something went wrong.",
-      detail: err?.response?.data || err,
-    });
+    console.error("🔥 API ERROR:", err); // Real error logging
+    return res.status(500).json({ error: err.message || "Unknown error" });
   }
 }
