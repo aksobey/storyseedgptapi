@@ -1,4 +1,8 @@
+﻿<<<<<<< HEAD
 ﻿const OpenAI = require("openai");
+=======
+﻿import OpenAI from "openai";
+>>>>>>> 9d09858 (Resolve conflicts and clean deployment files)
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -30,9 +34,18 @@ module.exports = async function handler(req, res) {
     });
 
     const reply = completion.choices[0].message.content;
+<<<<<<< HEAD
     res.status(200).json({ reply });
   } catch (error) {
     console.error("OpenAI API error:", error);
     res.status(500).json({ error: "Something went wrong with OpenAI." });
   }
 };
+=======
+    return res.status(200).json({ reply });
+} catch (err) {
+  console.error("OpenAI API error:", err);
+  return res.status(500).json({ error: err.message || "Unknown error", detail: err });
+}
+}
+>>>>>>> 9d09858 (Resolve conflicts and clean deployment files)

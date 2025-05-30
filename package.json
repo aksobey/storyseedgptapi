@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿{
+=======
+{
+>>>>>>> 9d09858 (Resolve conflicts and clean deployment files)
   "name": "storyseedgptapi",
   "version": "1.0.0",
   "main": "api/generate-character.js",
