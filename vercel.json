@@ -1,0 +1,15 @@
+﻿{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/generate-character.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/generate-character",
+      "dest": "api/generate-character.js"
+    }
+  ]
+}
