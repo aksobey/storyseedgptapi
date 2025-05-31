@@ -1,6 +1,4 @@
-﻿// Trigger Vercel redeploy for CORS test ✅
-
-import OpenAI from "openai";
+﻿import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -34,7 +32,7 @@ export default async function handler(req, res) {
     });
 
     const reply = completion.choices[0]?.message?.content?.trim();
-    return res.status(200).json({ reply });
+    return res.status(200).json({ result: reply });
   } catch (error) {
     console.error("Error generating character:", error);
     return res.status(500).json({ error: "Failed to generate character." });
