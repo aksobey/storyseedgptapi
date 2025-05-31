@@ -1,4 +1,6 @@
-﻿import OpenAI from "openai";
+﻿// Force redeploy to apply CORS
+
+import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
