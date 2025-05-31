@@ -1,4 +1,4 @@
-﻿// Force redeploy to apply CORS
+﻿// Trigger Vercel redeploy for CORS test ✅
 
 import OpenAI from "openai";
 
