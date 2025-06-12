@@ -17,9 +17,9 @@ export default async function handler(req, res) {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o",  // or downgrade to gpt-3.5-turbo if cost sensitive
       messages: [
-        { role: "system", content: "You are a children's story generator. Write whimsical, age-appropriate short stories based on the prompt provided." },
+        { role: "system", content: "You are a children's story generator. Write fun, whimsical, age-appropriate short stories based on the prompt provided. Avoid anything scary, violent, or inappropriate." },
         { role: "user", content: prompt }
       ],
       max_tokens: 1000,
