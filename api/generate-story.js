@@ -5,7 +5,6 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,18 +26,14 @@ export default async function handler(req, res) {
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a children's story generator. Write whimsical, age-appropriate short stories based on the prompt provided." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 1000,
-      temperature: 0.8
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1200,
     });
 
-    const story = completion.choices[0].message.content.trim();
-    res.status(200).json({ story });
+    const storyResult = completion.choices[0].message.content;
+    res.status(200).json({ story: storyResult });
   } catch (error) {
     console.error("Error generating story:", error);
-    res.status(500).json({ error: "Story generation failed." });
+    res.status(500).json({ error: "Failed to generate story." });
   }
 }

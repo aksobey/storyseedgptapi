@@ -5,13 +5,12 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // Allow CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end(); // Pre-flight response
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   if (req.method !== "POST") {
@@ -26,15 +25,15 @@ export default async function handler(req, res) {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 300,
+      max_tokens: 800,
     });
 
-    const reply = completion.choices[0]?.message?.content?.trim();
-    return res.status(200).json({ result: reply });
+    const result = completion.choices[0].message.content;
+    res.status(200).json({ result });
   } catch (error) {
     console.error("Error generating character:", error);
-    return res.status(500).json({ error: "Failed to generate character." });
+    res.status(500).json({ error: "Failed to generate character." });
   }
 }
