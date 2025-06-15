@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       quality: "standard",
     });
 
-    const imageUrl = response.data[0].url;
+    const imageUrl = response.data.data[0].url;
     return res.status(200).json({ imageUrl });
   } catch (error) {
     console.error(error);
