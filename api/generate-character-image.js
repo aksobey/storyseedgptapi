@@ -27,12 +27,12 @@ export default async function handler(req, res) {
   `;
 
   try {
-    const response = await openai.images.generate({
-      prompt: imagePrompt,
-      n: 1,
-      size: "1024x1024",
-      quality: "standard",
-    });
+const response = await openai.images.generate({
+  prompt: imagePrompt,
+  n: 1,
+  size: "1024x1024"
+});
+
 
     console.log("OpenAI response:", response);
 
