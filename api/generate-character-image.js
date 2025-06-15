@@ -5,7 +5,7 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // CORS headers patch (same as we've done before)
+  // CORS headers patch (already applied)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -20,6 +20,9 @@ export default async function handler(req, res) {
   }
 
   const { name, species, gender, aesthetic } = req.body;
+
+  // Add logging to debug payload
+  console.log("Incoming request:", { name, species, gender, aesthetic });
 
   if (!aesthetic) {
     return res.status(400).json({ error: "Missing character aesthetic" });
@@ -49,7 +52,7 @@ export default async function handler(req, res) {
     const imageUrl = response.data.data[0].url;
     return res.status(200).json({ imageUrl });
   } catch (error) {
-    console.error(error);
+    console.error("Image generation failed:", error);
     return res.status(500).json({ error: "Image generation failed" });
   }
 }
