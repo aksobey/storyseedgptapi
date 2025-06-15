@@ -13,14 +13,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Safe test prompt
-  const imagePrompt = `
-  An illustration of a smiling cartoon rabbit on a grassy field.
-  Cute, colorful, child-safe, and friendly.
-  Centered portrait.
-  `;
-
   try {
+    const { prompt } = req.body;
+
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -29,7 +24,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: imagePrompt,
+        prompt: prompt,
         n: 1,
         size: "1024x1024"
       }),
