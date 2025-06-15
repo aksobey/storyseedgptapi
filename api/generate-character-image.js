@@ -5,7 +5,7 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // CORS headers patch (already applied)
+  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -19,21 +19,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Hardcoded safe test prompt for debugging
-const imagePrompt = `
-An illustration of a smiling cartoon rabbit on a grassy field.
-Cute, colorful, child-safe, and friendly.
-Centered portrait.
-`;
-
+  // Ultra-safe test prompt for production validation
+  const imagePrompt = `
+  An illustration of a smiling cartoon rabbit on a grassy field.
+  Cute, colorful, child-safe, and friendly.
+  Centered portrait.
+  `;
 
   try {
-const response = await openai.images.generate({
-  prompt: imagePrompt,
-  n: 1,
-  size: "1024x1024"
-});
-
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: imagePrompt,
+      n: 1,
+      size: "1024x1024"
+    });
 
     console.log("OpenAI response:", response);
 
