@@ -19,23 +19,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, species, gender, aesthetic } = req.body;
-
-  // Add logging to debug payload
-  console.log("Incoming request:", { name, species, gender, aesthetic });
-
-  if (!aesthetic) {
-    return res.status(400).json({ error: "Missing character aesthetic" });
-  }
-
+  // Hardcoded safe test prompt for debugging
   const imagePrompt = `
-  Create a children's book style illustration of the following character:
-
-  Name: ${name || "Unnamed"}
-  Species: ${species}
-  Gender: ${gender}
-  Appearance Details: ${aesthetic}
-
+  Create a children's book style illustration of a happy smiling cartoon rabbit wearing a red bowtie on a grassy field.
   The illustration should be colorful, friendly, child-safe, cute, highly illustrative, and suitable for kids aged 4-10.
   Use a centered portrait style on a neutral background.
   `;
