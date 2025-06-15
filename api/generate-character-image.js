@@ -26,7 +26,6 @@ Cute, colorful, child-safe, and friendly.
 Centered portrait.
 `;
 
-  `;
 
   try {
 const response = await openai.images.generate({
