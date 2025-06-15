@@ -20,10 +20,12 @@ export default async function handler(req, res) {
   }
 
   // Hardcoded safe test prompt for debugging
-  const imagePrompt = `
-  Create a children's book style illustration of a happy smiling cartoon rabbit wearing a red bowtie on a grassy field.
-  The illustration should be colorful, friendly, child-safe, cute, highly illustrative, and suitable for kids aged 4-10.
-  Use a centered portrait style on a neutral background.
+const imagePrompt = `
+An illustration of a smiling cartoon rabbit on a grassy field.
+Cute, colorful, child-safe, and friendly.
+Centered portrait.
+`;
+
   `;
 
   try {
