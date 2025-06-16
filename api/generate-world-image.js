@@ -4,17 +4,22 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // Handle preflight request universally
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
+  // Handle non-POST requests early
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
     const { prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Missing prompt" });
+    }
 
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
@@ -31,8 +36,6 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-
-    console.log("OpenAI response:", data);
 
     if (!data || !data.data || data.data.length === 0) {
       console.error("No image data returned from OpenAI");
