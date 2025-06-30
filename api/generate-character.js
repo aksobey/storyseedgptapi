@@ -1,16 +1,15 @@
-﻿const OpenAI = require("openai");
+﻿import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-module.exports = async function handler(req, res) {
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
@@ -26,22 +25,15 @@ module.exports = async function handler(req, res) {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a creative assistant that writes character descriptions.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.8,
-      max_tokens: 300,
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 800,
     });
 
-    const reply = completion.choices[0].message.content;
-    res.status(200).json({ reply });
+    const result = completion.choices[0].message.content;
+    res.status(200).json({ result });
   } catch (error) {
-    console.error("OpenAI API error:", error);
-    res.status(500).json({ error: "Something went wrong with OpenAI." });
+    console.error("Error generating character:", error);
+    res.status(500).json({ error: "Failed to generate character." });
   }
-};
+}
