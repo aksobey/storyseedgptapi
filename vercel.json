@@ -1,6 +1,21 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/**/*.js", "use": "@vercel/node" }
+    { "src": "api/generate-character.js", "use": "@vercel/node" },
+    { "src": "api/generate-character-image.js", "use": "@vercel/node" },
+    { "src": "api/generate-world.js", "use": "@vercel/node" },
+    { "src": "api/generate-world-image.js", "use": "@vercel/node" },
+    { "src": "api/generate-story.js", "use": "@vercel/node" },
+    { "src": "api/generate-audio.js", "use": "@vercel/node" },
+    { "src": "api/extract-story-state.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/generate-character", "dest": "api/generate-character.js" },
+    { "src": "/api/generate-character-image", "dest": "api/generate-character-image.js" },
+    { "src": "/api/generate-world", "dest": "api/generate-world.js" },
+    { "src": "/api/generate-world-image", "dest": "api/generate-world-image.js" },
+    { "src": "/api/generate-story", "dest": "api/generate-story.js" },
+    { "src": "/api/generate-audio", "dest": "api/generate-audio.js" },
+    { "src": "/api/extract-story-state", "dest": "api/extract-story-state.js" }
   ]
 }
