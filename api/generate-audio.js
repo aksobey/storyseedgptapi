@@ -1,12 +1,18 @@
-// generate-audio.js - voice is magic 🧙‍♂️
-// Trigger redeploy
-
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, voice = '21m00Tcm4TlvDq8ikWAM' } = req.body; // Rachel's default ID
+  const { text, voice = '21m00Tcm4TlvDq8ikWAM' } = req.body;
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
   if (!apiKey) {
@@ -14,7 +20,7 @@ export default async function handler(req, res) {
   }
 
   if (!text) {
-    return res.status(400).json({ error: 'Missing "text" in request body' });
+    return res.status(400).json({ error: 'Missing \"text\" in request body' });
   }
 
   try {
@@ -41,7 +47,7 @@ export default async function handler(req, res) {
 
     const audioBuffer = await response.arrayBuffer();
     res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Disposition', 'inline; filename="story.mp3"');
+    res.setHeader('Content-Disposition', 'inline; filename=\"story.mp3\"');
     res.send(Buffer.from(audioBuffer));
   } catch (err) {
     res.status(500).json({ error: 'Server error', details: err.message });
