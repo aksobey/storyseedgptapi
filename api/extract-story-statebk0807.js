@@ -24,30 +24,16 @@ export default async function handler(req, res) {
   }
 
   const extractionPrompt = `
-You are an assistant that extracts structured story state data from children's bedtime stories.
+You are an assistant that extracts structured story state data from children's bedtime stories. 
 
 Given the story, return a JSON object containing:
 {
-  "currentLocation": "Where is the story taking place? Include world/setting details (time, mood, weather, etc.)",
-  "knownCharacters": [
-    {
-      "name": "...",
-      "currentState": "...",
-      "goal": "...",
-      "relationships": "..."
-    }
-  ],
-  "importantObjects": [
-    {
-      "name": "...",
-      "description": "...",
-      "possessedBy": "..."
-    }
-  ],
-  "moralsLearned": ["..."],
-  "openPlotPoints": ["List unresolved mysteries, quests, or conflicts"],
-  "latestEventSummary": "A 1-2 sentence summary of the most recent events.",
-  "tone": "Overall tone/style of the story"
+  "currentLocation": "...",
+  "knownCharacters": [...],
+  "importantObjects": [...],
+  "moralsLearned": [...],
+  "openPlotPoints": [...],
+  "latestEventSummary": "..."
 }
 
 Only return valid JSON.
@@ -60,7 +46,7 @@ ${story}
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: extractionPrompt }],
-      max_tokens: 700,
+      max_tokens: 500,
     });
 
     const result = completion.choices[0].message.content;
