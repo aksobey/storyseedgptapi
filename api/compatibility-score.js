@@ -1,25 +1,19 @@
 import { Configuration, OpenAIApi } from 'openai';
 
 export default async function handler(req, res) {
-  // ✅ CORS headers for non-credentialed cross-origin requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+
+  // ✅ Allow exact origin (required for Vercel)
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
-  // ✅ Handle preflight
+  // 🚫 REMOVE credentials unless using cookies/sessions
+  // res.setHeader('Access-Control-Allow-Credentials', 'true');
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  const { character, world } = req.body;
-  if (!character || !world) {
-    res.status(400).json({ error: 'Missing character or world' });
     return;
   }
 
