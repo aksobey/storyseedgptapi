@@ -1,13 +1,22 @@
 import { Configuration, OpenAIApi } from 'openai';
 
 export default async function handler(req, res) {
-  // ✅ CORS headers (safe + simple)
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Vercel: parse JSON body if needed
+  if (req.method === 'POST' && req.headers['content-type'] === 'application/json' && typeof req.body === 'string') {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
   }
 
   if (req.method !== 'POST') {
