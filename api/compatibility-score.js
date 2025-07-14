@@ -1,14 +1,11 @@
 import { Configuration, OpenAIApi } from 'openai';
 
 export default async function handler(req, res) {
-  // CORS headers (set for all requests)
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // ✅ Simple CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight OPTIONS
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -39,13 +36,12 @@ export default async function handler(req, res) {
       max_tokens: 200,
       temperature: 0.7,
     });
-    // Extract JSON from response
+
     const text = completion.data.choices[0].message.content;
     let result;
     try {
       result = JSON.parse(text);
     } catch (e) {
-      // Try to extract JSON from text
       const match = text.match(/\{[\s\S]*\}/);
       if (match) {
         result = JSON.parse(match[0]);
@@ -53,6 +49,7 @@ export default async function handler(req, res) {
         throw new Error('Could not parse JSON from GPT response');
       }
     }
+
     res.status(200).json(result);
   } catch (error) {
     console.error('GPT compatibility error:', error);
