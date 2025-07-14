@@ -1,11 +1,12 @@
 import { Configuration, OpenAIApi } from 'openai';
 
 export default async function handler(req, res) {
-  // ✅ Simple CORS headers
+  // ✅ CORS headers for non-credentialed cross-origin requests
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
+  // ✅ Handle preflight
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
