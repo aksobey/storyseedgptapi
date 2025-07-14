@@ -1,4 +1,4 @@
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 
 export default async function handler(req, res) {
   // CORS headers
@@ -43,9 +43,8 @@ Respond in this JSON format:
 }`;
 
   try {
-    const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
-    const openai = new OpenAIApi(configuration);
-    const completion = await openai.createChatCompletion({
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: "You are a helpful assistant for a children's story app." },
@@ -55,7 +54,7 @@ Respond in this JSON format:
       temperature: 0.7
     });
 
-    const text = completion.data.choices[0].message.content;
+    const text = completion.choices[0].message.content;
     let result;
     try {
       result = JSON.parse(text);
