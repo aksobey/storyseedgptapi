@@ -12,7 +12,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, voice = '21m00Tcm4TlvDq8ikWAM' } = req.body;
+  // Accept 'voice_id' from the request body, fallback to default if not provided
+  const { text, voice_id } = req.body;
+  const selectedVoice = voice_id || '21m00Tcm4TlvDq8ikWAM'; // Default ElevenLabs voice
+
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
   if (!apiKey) {
@@ -24,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
