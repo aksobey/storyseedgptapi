@@ -28,13 +28,22 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing character or world' });
   }
 
+  // Improved, more critical prompt
   const prompt = `Given the following character and world, rate how compatible they are for a story (0-100%), and explain your reasoning in a fun, kid-friendly way.
 
+Be critical! If the character and world are a bad match (e.g., a mermaid in a desert, a dragon in the ocean, a robot in a magical forest), give a low score (10-40%) and explain why. Only give high scores (70%+) for truly great matches. Use the world biome and worldStyle fields, not just the description.
+
 Character:
-${character.name || ''}, a ${character.species || ''}. Traits: ${(character.traits || []).join(', ')}. Special Ability: ${character.specialAbility || ''}.
+Name: ${character.name || ''}
+Species: ${character.species || ''}
+Traits: ${(character.traits || []).join(', ')}
+Special Ability: ${character.specialAbility || ''}
 
 World:
-${world.name || ''}, a ${world.biome || world.worldStyle || ''}. Description: ${world.description || ''}
+Name: ${world.name || ''}
+Biome: ${world.biome || ''}
+World Style: ${world.worldStyle || ''}
+Description: ${world.description || ''}
 
 Respond in this JSON format:
 {
