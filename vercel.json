@@ -9,7 +9,8 @@
     { "src": "api/generate-audio.js", "use": "@vercel/node" },
     { "src": "api/extract-story-state.js", "use": "@vercel/node" },
     { "src": "api/generate-scene-image.js", "use": "@vercel/node" },
-    { "src": "api/compatibility-score.js", "use": "@vercel/node" }
+    { "src": "api/compatibility-score.js", "use": "@vercel/node" },
+    { "src": "api/extract-scene-moments.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/generate-character", "dest": "api/generate-character.js" },
@@ -20,6 +21,7 @@
     { "src": "/api/generate-audio", "dest": "api/generate-audio.js" },
     { "src": "/api/extract-story-state", "dest": "api/extract-story-state.js" },
     { "src": "/api/generate-scene-image", "dest": "api/generate-scene-image.js" },
-    { "src": "/api/compatibility-score", "dest": "api/compatibility-score.js" }
+    { "src": "/api/compatibility-score", "dest": "api/compatibility-score.js" },
+    { "src": "/api/extract-scene-moments", "dest": "api/extract-scene-moments.js" }
   ]
 }
