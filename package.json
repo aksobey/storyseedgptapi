@@ -4,6 +4,7 @@
   "main": "api/generate-character.js",
   "type": "module",
   "dependencies": {
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "replicate": "^1.0.1"
   }
 }
