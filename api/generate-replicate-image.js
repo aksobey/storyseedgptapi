@@ -49,12 +49,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         version: modelVersion,
         input: {
-          prompt: prompt,
-          width: 1024,
-          height: 1024,
-          num_outputs: 1,
-          guidance_scale: 7.5,
-          num_inference_steps: 30
+          prompt: options?.prompt || prompt,
+          seed: options?.seed || 1,
+          speed_mode: options?.speed_mode || 'Juiced 🔥 (more speed)',
+          output_quality: options?.output_quality || 80
         }
       })
     });
