@@ -64,6 +64,23 @@ export default async function handler(req, res) {
       imageUrl = output;
     } else if (Array.isArray(output) && typeof output[0] === "string") {
       imageUrl = output[0];
+    } else if (output && typeof output.getReader === 'function') {
+      // Handle ReadableStream
+      const reader = output.getReader();
+      let result = '';
+      let done, value;
+      while (true) {
+        ({ done, value } = await reader.read());
+        if (done) break;
+        if (value) result += new TextDecoder().decode(value);
+      }
+      try {
+        const parsed = JSON.parse(result);
+        if (typeof parsed === "string") imageUrl = parsed;
+        else if (Array.isArray(parsed) && typeof parsed[0] === "string") imageUrl = parsed[0];
+      } catch (e) {
+        console.error("Failed to parse Replicate stream:", e);
+      }
     }
 
     if (!imageUrl) {
