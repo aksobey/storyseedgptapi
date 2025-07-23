@@ -44,12 +44,9 @@ export default async function handler(req, res) {
           version: modelVersion,
           input: {
             prompt: prompt,
-            model_type: 'full',
-         resolution: '1024x1024',
-  speed_mode: 'Juiced',
-            output_format: 'webp',
-            output_quality: 80,
             seed: 1,
+            speed_mode: 'Juiced 🔥 (more speed)',
+            output_quality: 80
           },
         }),
       }
