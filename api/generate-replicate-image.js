@@ -50,9 +50,10 @@ export default async function handler(req, res) {
         version: modelVersion,
         input: {
           prompt: options?.prompt || prompt,
-          seed: options?.seed || 1,
-          speed_mode: options?.speed_mode || 'Juiced 🔥 (more speed)',
-          output_quality: options?.output_quality || 80
+          model_type: options?.model_type || 'full',
+          speed_mode: options?.speed_mode || 'Lightly Juiced 🍊 (more consistent)',
+          resolution: options?.resolution || '1024x1024 (Square)',
+          seed: options?.seed || 1
         }
       })
     });
