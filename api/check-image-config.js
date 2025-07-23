@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS headers - more permissive for development .
+  // CORS headers - more permissive for development
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
@@ -14,21 +14,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check if Stability AI API key is configured
+    // Check all relevant API keys and model versions
     const stabilityApiKey = process.env.STABILITY_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
-    
+    const replicateApiKey = process.env.REPLICATE_API_KEY || process.env.REPLICATE_API_TOKEN;
+    const replicateModelVersion = process.env.REPLICATE_MODEL_VERSION;
+
     const config = {
       stabilityApiKeyConfigured: !!stabilityApiKey,
       openaiApiKeyConfigured: !!openaiApiKey,
+      replicateApiKeyConfigured: !!replicateApiKey,
+      replicateModelVersionConfigured: !!replicateModelVersion,
       imageProvider: process.env.IMAGE_PROVIDER || 'dalle',
       useUnifiedImageGeneration: process.env.USE_UNIFIED_IMAGE_GENERATION === 'true',
       stableDiffusionRolloutPercentage: parseInt(process.env.STABLE_DIFFUSION_ROLLOUT_PERCENTAGE) || 0,
+      replicateRolloutPercentage: 100,
       enableImageFallback: process.env.ENABLE_IMAGE_FALLBACK !== 'false',
     };
 
     console.log('[Config] Image generation config:', config);
-    
+
     res.status(200).json(config);
   } catch (error) {
     console.error("Error checking image config:", error);
