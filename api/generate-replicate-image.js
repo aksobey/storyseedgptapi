@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Restrict to POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -22,44 +21,36 @@ export default async function handler(req, res) {
   }
 
   const replicateToken = process.env.REPLICATE_API_TOKEN;
-  console.log("✅ REPLICATE_API_TOKEN present:", !!replicateToken);
-
-  if (!replicateToken) {
-    return res.status(500).json({ error: 'Missing Replicate API token in environment variables' });
-  }
-
-  const Replicate = (await import("replicate")).default;
+  const Replicate = (await import('replicate')).default;
   const replicate = new Replicate({ auth: replicateToken });
 
   try {
-    console.log("🟡 Starting replicate.run with prompt:", prompt);
-
     const output = await replicate.run(
       "prunaai/hidream-l1-full:70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
       {
         input: {
-          prompt,
           seed: 1,
+          prompt,
           model_type: "full",
-          resolution: "1024x1024",
-          speed_mode: "juiced",
+          resolution: "1024 × 1024 (Square)", // Note: includes UTF-8 multiply sign
+          speed_mode: "Juiced 🔥 (more speed)", // Emoji and casing matter!
           output_format: "webp",
-          output_quality: 80,
-        },
+          output_quality: 80
+        }
       }
     );
 
-    console.log("🟢 replicate.run completed. Raw output:", output);
-
-    if (!output || !output.output) {
-      console.error("🔴 Unexpected output format:", output);
-      return res.status(500).json({ error: "Unexpected Replicate response format" });
+    if (!output || typeof output !== "string") {
+      console.error("Unexpected Replicate output:", output);
+      return res.status(500).json({ error: "Invalid image output from Replicate" });
     }
 
-    const imageUrl = Array.isArray(output.output) ? output.output[0] : output.output;
-    res.status(200).json({ imageUrl });
-  } catch (error) {
-    console.error("🔥 Replicate generation failed:", error);
-    res.status(500).json({ error: "Image generation failed", detail: error.message || error });
+    res.status(200).json({ imageUrl: output });
+  } catch (err) {
+    console.error("[Replicate Error]", err);
+    return res.status(500).json({
+      error: "Image generation failed",
+      detail: err?.message || err
+    });
   }
 }
