@@ -88,9 +88,16 @@ export default async function handler(req, res) {
 
       const statusData = await statusResponse.json();
       console.log(`Replicate status (attempt ${attempts}):`, statusData.status);
+      console.log('Replicate statusData:', statusData); // Debug: log the full Replicate response
 
       if (statusData.status === 'succeeded') {
-        const imageUrl = statusData.output[0]; // Replicate returns array of URLs
+        let imageUrl = null;
+        if (statusData.output && Array.isArray(statusData.output) && statusData.output.length > 0) {
+          imageUrl = statusData.output[0];
+        } else {
+          console.error('No valid output from Replicate:', statusData);
+          return res.status(500).json({ error: 'No image URL returned from Replicate.' });
+        }
         return res.json({ imageUrl, provider: 'replicate' });
       } else if (statusData.status === 'failed') {
         return res.status(500).json({ error: 'Replicate prediction failed' });
