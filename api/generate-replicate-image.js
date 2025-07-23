@@ -1,5 +1,3 @@
-// /api/generate-replicate-image.js
-
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -29,6 +27,8 @@ export default async function handler(req, res) {
   const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
 
   try {
+    console.log("📤 Sending prompt to Replicate:", prompt);
+
     const output = await replicate.run(
       "prunaai/hidream-l1-full:70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
       {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
           seed: 1,
           model_type: "full",
           resolution: "1024x1024",
-          speed_mode: "juiced",
+          speed_mode: "juiced", // <-- if this fails, try "turbo" or remove it
           output_format: "webp",
           output_quality: 80,
         },
@@ -46,7 +46,6 @@ export default async function handler(req, res) {
 
     console.log("🖼️ Replicate response output:", output);
 
-    // Accept array or string
     let imageUrl = null;
     if (typeof output === "string") {
       imageUrl = output;
