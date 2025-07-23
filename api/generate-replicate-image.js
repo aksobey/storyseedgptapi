@@ -1,62 +1,78 @@
 // pages/api/generate-replicate-image.js
 
-import Replicate from 'replicate';
+import Replicate from "replicate";
 
 export default async function handler(req, res) {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
+  // ✅ Always apply CORS headers early
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end(); // No Content for preflight
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    console.warn("⛔ Invalid method:", req.method);
+    return res.status(405).json({ error: "Method not allowed" });
   }
+
+  console.log("✅ Request received at /generate-replicate-image");
+
+  const { prompt } = req.body;
+  console.log("📦 Request body:", req.body);
+
+  if (!prompt) {
+    console.error("❌ Missing prompt");
+    return res.status(400).json({ error: "Missing prompt" });
+  }
+
+  const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
+  if (!REPLICATE_API_TOKEN) {
+    console.error("❌ Missing REPLICATE_API_TOKEN in environment");
+    return res.status(500).json({ error: "Missing REPLICATE_API_TOKEN" });
+  }
+
+  console.log("🔐 Token loaded successfully");
 
   try {
-    console.log('✅ Request received to generate-replicate-image');
-    console.log('👉 Request body:', req.body);
+    const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
+    console.log("⚙️ Replicate SDK initialized");
 
-    const prompt = req.body?.prompt;
-    if (!prompt) {
-      console.error('❌ No prompt provided');
-      return res.status(400).json({ error: 'Prompt is required' });
-    }
-
-    const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-    if (!REPLICATE_API_TOKEN) {
-      console.error('❌ REPLICATE_API_TOKEN not found in env');
-      return res.status(500).json({ error: 'Server configuration error' });
-    }
-
-    console.log('✅ Token found, initializing Replicate');
-
-    const replicate = new Replicate({
-      auth: REPLICATE_API_TOKEN,
-    });
-
-    console.log('✅ Replicate initialized, running model...');
+    console.log("🚀 Sending to Replicate:", prompt);
 
     const output = await replicate.run(
-      'stability-ai/sdxl:latest',
+      "prunaai/hidream-l1-full:70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
       {
         input: {
           prompt,
-          width: 512,
-          height: 512,
-          guidance_scale: 7.5,
-          num_inference_steps: 50,
-        }
+          seed: 1,
+          model_type: "full",
+          resolution: "1024x1024",
+          speed_mode: "juiced",
+          output_format: "webp",
+          output_quality: 80,
+        },
       }
     );
 
-    console.log('✅ Image generated:', output);
+    console.log("🖼️ Replicate response:", output);
 
-    res.status(200).json({ image: output });
+    let imageUrl = null;
+    if (typeof output === "string") {
+      imageUrl = output;
+    } else if (Array.isArray(output) && typeof output[0] === "string") {
+      imageUrl = output[0];
+    }
+
+    if (!imageUrl) {
+      console.error("⚠️ No valid imageUrl from Replicate:", output);
+      return res.status(500).json({ error: "No valid image URL from Replicate", raw: output });
+    }
+
+    return res.status(200).json({ imageUrl });
   } catch (error) {
-    console.error('❌ Error during Replicate call:', error);
-    res.status(500).json({ error: 'Internal Server Error', detail: error.message });
-  }
-}
+    console.error("🔥 Error during Replicate image generation:", error);
+    return res.status(500).json({
+      error: "Replicate image generation failed",
+      detail: error
