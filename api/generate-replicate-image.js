@@ -22,11 +22,18 @@ export default async function handler(req, res) {
   }
 
   const replicateToken = process.env.REPLICATE_API_TOKEN;
+  console.log("✅ REPLICATE_API_TOKEN present:", !!replicateToken);
+
+  if (!replicateToken) {
+    return res.status(500).json({ error: 'Missing Replicate API token in environment variables' });
+  }
 
   const Replicate = (await import("replicate")).default;
   const replicate = new Replicate({ auth: replicateToken });
 
   try {
+    console.log("🟡 Starting replicate.run with prompt:", prompt);
+
     const output = await replicate.run(
       "prunaai/hidream-l1-full:70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
       {
@@ -42,12 +49,15 @@ export default async function handler(req, res) {
       }
     );
 
-    if (!output || !output.output || typeof output.output !== "string") {
-      console.error("Replicate returned unexpected output:", output);
+    console.log("🟢 replicate.run completed. Raw output:", output);
+
+    if (!output || !output.output) {
+      console.error("🔴 Unexpected output format:", output);
       return res.status(500).json({ error: "Unexpected Replicate response format" });
     }
 
-    res.status(200).json({ imageUrl: output.output });
+    const imageUrl = Array.isArray(output.output) ? output.output[0] : output.output;
+    res.status(200).json({ imageUrl });
   } catch (error) {
     console.error("🔥 Replicate generation failed:", error);
     res.status(500).json({ error: "Image generation failed", detail: error.message || error });
