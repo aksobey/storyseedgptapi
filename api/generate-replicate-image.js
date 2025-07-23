@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Only allow POST
+  // POST only
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -23,9 +23,7 @@ export default async function handler(req, res) {
   }
 
   const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-  const MODEL_VERSION =
-    process.env.REPLICATE_MODEL_VERSION ||
-    "70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb";
+  const MODEL_VERSION = "70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb";
 
   if (!REPLICATE_API_TOKEN) {
     return res.status(500).json({ error: "Missing REPLICATE_API_TOKEN" });
@@ -35,7 +33,7 @@ export default async function handler(req, res) {
     const Replicate = (await import("replicate")).default;
     const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
 
-    console.log("[Replicate Debug] Prompt:", prompt);
+    console.log("🚀 Sending to Replicate:", prompt);
 
     const output = await replicate.run(
       `prunaai/hidream-l1-full:${MODEL_VERSION}`,
@@ -52,28 +50,27 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("[Replicate Debug] Raw output:", output);
+    console.log("🖼️ Replicate raw output:", output);
 
+    // Detect valid output from model
     let imageUrl = null;
 
     if (typeof output === "string") {
       imageUrl = output;
-    } else if (Array.isArray(output) && typeof output[0] === "string") {
+    } else if (Array.isArray(output) && output.length && typeof output[0] === "string") {
       imageUrl = output[0];
     } else if (output?.output && typeof output.output === "string") {
       imageUrl = output.output;
     }
 
     if (!imageUrl) {
-      return res.status(500).json({ error: "Invalid image output from Replicate", raw: output });
+      console.error("❌ Invalid Replicate output", output);
+      return res.status(500).json({ error: "Invalid output from Replicate", raw: output });
     }
 
     return res.status(200).json({ imageUrl });
   } catch (err) {
-    console.error("[Replicate Error]", err);
-    return res.status(500).json({
-      error: "Image generation failed",
-      details: err.message || err,
-    });
+    console.error("🔥 Replicate generation failed:", err);
+    return res.status(500).json({ error: "Image generation failed", detail: err.message });
   }
 }
