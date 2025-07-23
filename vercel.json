@@ -11,7 +11,9 @@
     { "src": "api/generate-scene-image.js", "use": "@vercel/node" },
     { "src": "api/compatibility-score.js", "use": "@vercel/node" },
     { "src": "api/extract-scene-moments.js", "use": "@vercel/node" },
-    { "src": "api/visual-rewrite.js", "use": "@vercel/node" }
+    { "src": "api/visual-rewrite.js", "use": "@vercel/node" },
+    { "src": "api/check-image-config.js", "use": "@vercel/node" },
+    { "src": "api/generate-stable-diffusion-image.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/generate-character", "dest": "api/generate-character.js" },
@@ -24,6 +26,8 @@
     { "src": "/api/generate-scene-image", "dest": "api/generate-scene-image.js" },
     { "src": "/api/compatibility-score", "dest": "api/compatibility-score.js" },
     { "src": "/api/extract-scene-moments", "dest": "api/extract-scene-moments.js" },
-    { "src": "/api/visual-rewrite", "dest": "api/visual-rewrite.js" }
+    { "src": "/api/visual-rewrite", "dest": "api/visual-rewrite.js" },
+    { "src": "/api/check-image-config", "dest": "api/check-image-config.js" },
+    { "src": "/api/generate-stable-diffusion-image", "dest": "api/generate-stable-diffusion-image.js" }
   ]
 }
