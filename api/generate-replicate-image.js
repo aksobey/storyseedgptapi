@@ -57,23 +57,30 @@ export default async function handler(req, res) {
         }
       })
     });
-    const data = await response.json();
+    let data = await response.json();
+
+    // Poll for completion if not succeeded
+    let attempts = 0;
+    while (data.status !== "succeeded" && data.status !== "failed" && attempts < 30) {
+      await new Promise(res => setTimeout(res, 2000));
+      const pollResponse = await fetch(data.urls.get, {
+        headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
+      });
+      data = await pollResponse.json();
+      attempts++;
+    }
 
     console.log("🖼️ Replicate API response:", data);
 
-    let imageUrl = null;
-    if (typeof data.output === "string") {
-      imageUrl = data.output;
-    } else if (Array.isArray(data.output) && typeof data.output[0] === "string") {
-      imageUrl = data.output[0];
-    }
-
-    if (!imageUrl) {
+    if (data.status === "succeeded" && data.output) {
+      let imageUrl = null;
+      if (typeof data.output === "string") imageUrl = data.output;
+      else if (Array.isArray(data.output) && typeof data.output[0] === "string") imageUrl = data.output[0];
+      return res.status(200).json({ imageUrl });
+    } else {
       console.error("⚠️ No valid imageUrl from Replicate API:", data);
       return res.status(500).json({ error: "No valid image URL from Replicate", raw: data });
     }
-
-    return res.status(200).json({ imageUrl });
   } catch (error) {
     console.error("🔥 Error during Replicate image generation:", error);
     return res.status(500).json({
