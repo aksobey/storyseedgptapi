@@ -49,8 +49,8 @@ export default async function handler(req, res) {
           prompt,
           seed: 1,
           model_type: "full",
-          resolution: "1024x1024",
-          speed_mode: "juiced",
+          resolution: "1024 × 1024 (Square)", // <-- Use exact allowed value
+          speed_mode: "Juiced 🔥 (more speed)", // <-- Use exact allowed value
           output_format: "webp",
           output_quality: 80,
         },
