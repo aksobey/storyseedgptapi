@@ -37,6 +37,7 @@ export default async function handler(req, res) {
   console.log("🔐 Token loaded successfully");
 
   try {
+    const REPLICATE_MODEL_VERSION = process.env.REPLICATE_MODEL_VERSION;
     // Use fetch to call Replicate REST API directly
     const response = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
@@ -45,15 +46,12 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        version: "70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
+        version: REPLICATE_MODEL_VERSION,
         input: {
           prompt,
-          seed: 1,
-          model_type: "full",
-          resolution: "1024 × 1024 (Square)",
-          speed_mode: "Juiced 🔥 (more speed)",
-          output_format: "webp",
-          output_quality: 80,
+          // Optionally add input_image and output_format if needed
+          // input_image: "<image_url>",
+          output_format: "jpg"
         }
       })
     });
