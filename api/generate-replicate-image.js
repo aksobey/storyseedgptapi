@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-  const modelVersion = '03d5852342f09e9fd2ed080e8dc9a1c0ebe28cf273f068c1f366710d3588402f'; // hidream-l1-full
+  const modelVersion = '03d58532fd29e39fd2ed80e86c3da1cebec28ef2734081cf1366710d30388f42'; // hidream-l1-full
 
   const { prompt } = req.body;
 
@@ -43,9 +43,12 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           version: modelVersion,
           input: {
-            prompt: prompt,
             seed: 1,
-            speed_mode: 'Juiced 🔥 (more speed)',
+            prompt: prompt,
+            model_type: "full",
+            resolution: "1024 × 1024 (Square)",
+            speed_mode: "Juiced 🔥 (more speed)",
+            output_format: "webp",
             output_quality: 80
           },
         }),
