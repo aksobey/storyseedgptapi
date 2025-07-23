@@ -37,55 +37,40 @@ export default async function handler(req, res) {
   console.log("🔐 Token loaded successfully");
 
   try {
-    const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
-    console.log("⚙️ Replicate SDK initialized");
-
-    console.log("🚀 Sending to Replicate:", prompt);
-
-    const output = await replicate.run(
-      "prunaai/hidream-l1-full:70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
-      {
+    // Use fetch to call Replicate REST API directly
+    const response = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${REPLICATE_API_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        version: "70e52dbcff0149b38a2d1006427c5d35471e90010b1355220e40574fbef306fb",
         input: {
           prompt,
           seed: 1,
           model_type: "full",
-          resolution: "1024 × 1024 (Square)", // <-- Use exact allowed value
-          speed_mode: "Juiced 🔥 (more speed)", // <-- Use exact allowed value
+          resolution: "1024 × 1024 (Square)",
+          speed_mode: "Juiced 🔥 (more speed)",
           output_format: "webp",
           output_quality: 80,
-        },
-      }
-    );
+        }
+      })
+    });
+    const data = await response.json();
 
-    console.log("🖼️ Replicate response:", output);
+    console.log("🖼️ Replicate API response:", data);
 
     let imageUrl = null;
-    if (typeof output === "string") {
-      imageUrl = output;
-    } else if (Array.isArray(output) && typeof output[0] === "string") {
-      imageUrl = output[0];
-    } else if (output && typeof output.getReader === 'function') {
-      // Handle ReadableStream
-      const reader = output.getReader();
-      let result = '';
-      let done, value;
-      while (true) {
-        ({ done, value } = await reader.read());
-        if (done) break;
-        if (value) result += new TextDecoder().decode(value);
-      }
-      try {
-        const parsed = JSON.parse(result);
-        if (typeof parsed === "string") imageUrl = parsed;
-        else if (Array.isArray(parsed) && typeof parsed[0] === "string") imageUrl = parsed[0];
-      } catch (e) {
-        console.error("Failed to parse Replicate stream:", e);
-      }
+    if (typeof data.output === "string") {
+      imageUrl = data.output;
+    } else if (Array.isArray(data.output) && typeof data.output[0] === "string") {
+      imageUrl = data.output[0];
     }
 
     if (!imageUrl) {
-      console.error("⚠️ No valid imageUrl from Replicate:", output);
-      return res.status(500).json({ error: "No valid image URL from Replicate", raw: output });
+      console.error("⚠️ No valid imageUrl from Replicate API:", data);
+      return res.status(500).json({ error: "No valid image URL from Replicate", raw: data });
     }
 
     return res.status(200).json({ imageUrl });
