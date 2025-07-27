@@ -2,17 +2,31 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 // Initialize Firebase using environment variables
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID
-};
+let app, db;
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+try {
+  const firebaseConfig = {
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID
+  };
+
+  // Check if all required Firebase config is present
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    console.error('[generate-audio-async] Missing Firebase environment variables');
+    throw new Error('Firebase configuration incomplete');
+  }
+
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  console.log('[generate-audio-async] Firebase initialized successfully');
+} catch (error) {
+  console.error('[generate-audio-async] Firebase initialization failed:', error.message);
+  // Don't throw here - let the function continue and handle it in the handler
+}
 
 export default async function handler(req, res) {
   // CORS headers
@@ -33,6 +47,12 @@ export default async function handler(req, res) {
 
   if (!text) {
     return res.status(400).json({ error: 'Missing "text" in request body' });
+  }
+
+  // Check if Firebase is available
+  if (!db) {
+    console.error('[generate-audio-async] Firebase not initialized');
+    return res.status(500).json({ error: 'Database not available' });
   }
 
   // Generate unique job ID
