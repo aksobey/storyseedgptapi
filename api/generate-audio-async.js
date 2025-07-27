@@ -1,33 +1,45 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+// Firebase imports - will be loaded only when needed
+let firebaseApp, firestore, doc, setDoc, getDoc, updateDoc;
 
-// Initialize Firebase using environment variables
-let app, db;
+// Initialize Firebase function - called only when needed
+function initializeFirebase() {
+  if (firestore) return firestore; // Already initialized
+  
+  try {
+    // Dynamic imports to avoid module-level crashes
+    const { initializeApp } = require('firebase/app');
+    const { getFirestore } = require('firebase/firestore');
+    
+    const firebaseConfig = {
+      apiKey: process.env.FIREBASE_API_KEY,
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.FIREBASE_APP_ID
+    };
 
-try {
-  const firebaseConfig = {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID
-  };
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+      console.error('[generate-audio-async] Missing Firebase environment variables');
+      return null;
+    }
 
-  // Check if all required Firebase config is present
-  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    console.error('[generate-audio-async] Missing Firebase environment variables');
-    // Don't throw - just set db to null
-    db = null;
-  } else {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
+    firebaseApp = initializeApp(firebaseConfig);
+    firestore = getFirestore(firebaseApp);
+    
+    // Get Firestore functions
+    const { doc: docFn, setDoc: setDocFn, getDoc: getDocFn, updateDoc: updateDocFn } = require('firebase/firestore');
+    doc = docFn;
+    setDoc = setDocFn;
+    getDoc = getDocFn;
+    updateDoc = updateDocFn;
+    
     console.log('[generate-audio-async] Firebase initialized successfully');
+    return firestore;
+  } catch (error) {
+    console.error('[generate-audio-async] Firebase initialization failed:', error.message);
+    return null;
   }
-} catch (error) {
-  console.error('[generate-audio-async] Firebase initialization failed:', error.message);
-  // Don't throw here - just set db to null
-  db = null;
 }
 
 export default async function handler(req, res) {
@@ -51,9 +63,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing "text" in request body' });
   }
 
-  // Check if Firebase is available
+  // Initialize Firebase only when needed
+  const db = initializeFirebase();
   if (!db) {
-    console.error('[generate-audio-async] Firebase not initialized');
+    console.error('[generate-audio-async] Firebase not available');
     return res.status(500).json({ error: 'Database not available' });
   }
 
