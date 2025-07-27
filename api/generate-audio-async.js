@@ -1,3 +1,19 @@
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+
+// Initialize Firebase (you'll need to add your config here)
+const firebaseConfig = {
+  apiKey: "AIzaSyBrakU4encBm0p3swJutJWefenCZu47qX8",
+  authDomain: "storyseed-28eec.firebaseapp.com",
+  projectId: "storyseed-28eec",
+  storageBucket: "storyseed-28eec.firebasestorage.app",
+  messagingSenderId: "602423243941",
+  appId: "1:602423243941:web:56850b384826b5de4f894c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -22,7 +38,7 @@ export default async function handler(req, res) {
   // Generate unique job ID
   const jobId = `tts_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  // Store job in memory (in production, use Redis or database)
+  // Store job in Firestore
   const job = {
     id: jobId,
     status: 'processing',
@@ -34,22 +50,25 @@ export default async function handler(req, res) {
     error: null
   };
 
-  // Store job in global memory (simple in-memory storage for now)
-  if (!global.ttsJobs) {
-    global.ttsJobs = new Map();
+  try {
+    // Store job in Firestore
+    const jobRef = doc(db, 'tts_jobs', jobId);
+    await setDoc(jobRef, job);
+    console.log(`[generate-audio-async] Job created in Firestore: ${jobId}`);
+
+    // Start TTS generation in background
+    generateTTSAsync(jobId, text, selectedVoice, tts_provider);
+
+    // Return immediately with job ID
+    return res.status(200).json({
+      jobId,
+      status: 'processing',
+      message: 'TTS generation started'
+    });
+  } catch (error) {
+    console.error(`[generate-audio-async] Error creating job: ${error.message}`);
+    return res.status(500).json({ error: 'Failed to create job' });
   }
-  global.ttsJobs.set(jobId, job);
-  console.log(`[generate-audio-async] Job created: ${jobId}, total jobs: ${global.ttsJobs.size}`);
-
-  // Start TTS generation in background
-  generateTTSAsync(jobId, text, selectedVoice, tts_provider);
-
-  // Return immediately with job ID
-  return res.status(200).json({
-    jobId,
-    status: 'processing',
-    message: 'TTS generation started'
-  });
 }
 
 async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
@@ -67,27 +86,38 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       error = `Unsupported TTS provider: ${ttsProvider}`;
     }
 
-    // Update job status
-    const job = global.ttsJobs.get(jobId);
-    if (job) {
-      job.status = audioUrl ? 'completed' : 'failed';
-      job.result = audioUrl;
-      job.error = error;
-      job.completed_at = new Date().toISOString();
-      global.ttsJobs.set(jobId, job);
-      console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${job.status}`);
+    // Update job status in Firestore
+    const jobRef = doc(db, 'tts_jobs', jobId);
+    const jobDoc = await getDoc(jobRef);
+    
+    if (jobDoc.exists()) {
+      const updateData = {
+        status: audioUrl ? 'completed' : 'failed',
+        result: audioUrl,
+        error: error,
+        completed_at: new Date().toISOString()
+      };
+      await updateDoc(jobRef, updateData);
+      console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${updateData.status}`);
     } else {
       console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
     }
 
   } catch (err) {
-    // Update job with error
-    const job = global.ttsJobs.get(jobId);
-    if (job) {
-      job.status = 'failed';
-      job.error = err.message;
-      job.completed_at = new Date().toISOString();
-      global.ttsJobs.set(jobId, job);
+    console.error(`[generateTTSAsync] Error: ${err.message}`);
+    // Update job with error in Firestore
+    try {
+      const jobRef = doc(db, 'tts_jobs', jobId);
+      const jobDoc = await getDoc(jobRef);
+      if (jobDoc.exists()) {
+        await updateDoc(jobRef, {
+          status: 'failed',
+          error: err.message,
+          completed_at: new Date().toISOString()
+        });
+      }
+    } catch (updateError) {
+      console.error(`[generateTTSAsync] Failed to update job with error: ${updateError.message}`);
     }
   }
 }
