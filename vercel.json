@@ -38,4 +38,4 @@
     { "src": "/api/generate-stable-diffusion-image", "dest": "api/generate-stable-diffusion-image.js" },
     { "src": "/api/generate-replicate-image", "dest": "api/generate-replicate-image.js" }
   ]
-}
+} 
