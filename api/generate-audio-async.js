@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     global.ttsJobs = new Map();
   }
   global.ttsJobs.set(jobId, job);
+  console.log(`[generate-audio-async] Job created: ${jobId}, total jobs: ${global.ttsJobs.size}`);
 
   // Start TTS generation in background
   generateTTSAsync(jobId, text, selectedVoice, tts_provider);
@@ -52,11 +53,13 @@ export default async function handler(req, res) {
 }
 
 async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
+  console.log(`[generateTTSAsync] Starting TTS generation for jobId: ${jobId}`);
   try {
     let audioUrl = null;
     let error = null;
 
     if (ttsProvider === 'elevenlabs') {
+      console.log(`[generateTTSAsync] Using ElevenLabs for jobId: ${jobId}`);
       audioUrl = await generateElevenLabsTTS(text, voiceId);
     } else if (ttsProvider === 'google') {
       audioUrl = await generateGoogleTTS(text, voiceId);
@@ -72,6 +75,9 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       job.error = error;
       job.completed_at = new Date().toISOString();
       global.ttsJobs.set(jobId, job);
+      console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${job.status}`);
+    } else {
+      console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
     }
 
   } catch (err) {

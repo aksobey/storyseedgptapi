@@ -20,14 +20,19 @@ export default async function handler(req, res) {
 
   // Get job from memory
   if (!global.ttsJobs) {
+    console.log(`[check-tts-status] No global.ttsJobs found for jobId: ${jobId}`);
     return res.status(404).json({ error: 'Job not found' });
   }
 
+  console.log(`[check-tts-status] Looking for jobId: ${jobId}, total jobs: ${global.ttsJobs.size}`);
   const job = global.ttsJobs.get(jobId);
 
   if (!job) {
+    console.log(`[check-tts-status] Job not found: ${jobId}`);
     return res.status(404).json({ error: 'Job not found' });
   }
+
+  console.log(`[check-tts-status] Job found: ${jobId}, status: ${job.status}`);
 
   // Clean up completed/failed jobs older than 1 hour
   const oneHourAgo = Date.now() - (60 * 60 * 1000);
