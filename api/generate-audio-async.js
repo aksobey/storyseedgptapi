@@ -17,15 +17,17 @@ try {
   // Check if all required Firebase config is present
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     console.error('[generate-audio-async] Missing Firebase environment variables');
-    throw new Error('Firebase configuration incomplete');
+    // Don't throw - just set db to null
+    db = null;
+  } else {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    console.log('[generate-audio-async] Firebase initialized successfully');
   }
-
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  console.log('[generate-audio-async] Firebase initialized successfully');
 } catch (error) {
   console.error('[generate-audio-async] Firebase initialization failed:', error.message);
-  // Don't throw here - let the function continue and handle it in the handler
+  // Don't throw here - just set db to null
+  db = null;
 }
 
 export default async function handler(req, res) {
