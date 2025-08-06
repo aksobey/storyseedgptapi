@@ -92,11 +92,15 @@ export default async function handler(req, res) {
       
       if (audioUrl) {
         console.log('[generate-audio-async] Fallback TTS generation successful, audioUrl length:', audioUrl.length);
-        return res.status(200).json({
+        console.log('[generate-audio-async] About to return response with audioUrl');
+        const response = {
           success: true,
           audioUrl,
           status: 'completed'
-        });
+        };
+        console.log('[generate-audio-async] Response object keys:', Object.keys(response));
+        console.log('[generate-audio-async] Response object:', JSON.stringify(response, null, 2));
+        return res.status(200).json(response);
       } else {
         console.error('[generate-audio-async] TTS generation returned null audioUrl');
         return res.status(500).json({ error: 'TTS generation failed - no audio URL returned' });
@@ -234,8 +238,10 @@ async function generateElevenLabsTTS(text, voiceId) {
   // For now, we'll return a data URL
   // In production, you'd upload to cloud storage and return the URL
   const base64 = Buffer.from(audioBuffer).toString('base64');
-  console.log('[generateElevenLabsTTS] Successfully generated base64 audio');
-  return `data:audio/mpeg;base64,${base64}`;
+  const dataUrl = `data:audio/mpeg;base64,${base64}`;
+  console.log('[generateElevenLabsTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
+  console.log('[generateElevenLabsTTS] DataUrl starts with:', dataUrl.substring(0, 50) + '...');
+  return dataUrl;
 }
 
 async function generateGoogleTTS(text, voiceId) {
