@@ -2,7 +2,7 @@ export const config = {
   runtime: 'nodejs'
 };
 
-import applyCors from '../lib/cors';
+import applyCors from '../../lib/cors';
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
