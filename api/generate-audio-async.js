@@ -80,18 +80,18 @@ export default async function handler(req, res) {
       if (tts_provider === 'elevenlabs') {
         console.log('[generate-audio-async] Attempting ElevenLabs TTS...');
         audioUrl = await generateElevenLabsTTS(text, selectedVoice);
-        console.log('[generate-audio-async] ElevenLabs TTS completed successfully');
+        console.log('[generate-audio-async] ElevenLabs TTS completed successfully, audioUrl type:', typeof audioUrl, 'length:', audioUrl ? audioUrl.length : 'null');
       } else if (tts_provider === 'google') {
         console.log('[generate-audio-async] Attempting Google TTS...');
         audioUrl = await generateGoogleTTS(text, selectedVoice);
-        console.log('[generate-audio-async] Google TTS completed successfully');
+        console.log('[generate-audio-async] Google TTS completed successfully, audioUrl type:', typeof audioUrl, 'length:', audioUrl ? audioUrl.length : 'null');
       } else {
         console.error('[generate-audio-async] Unsupported provider:', tts_provider);
         return res.status(400).json({ error: `Unsupported TTS provider: ${tts_provider}` });
       }
       
       if (audioUrl) {
-        console.log('[generate-audio-async] Fallback TTS generation successful');
+        console.log('[generate-audio-async] Fallback TTS generation successful, audioUrl length:', audioUrl.length);
         return res.status(200).json({
           success: true,
           audioUrl,
