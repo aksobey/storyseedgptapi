@@ -30,16 +30,10 @@ try {
   db = null;
 }
 
-export default async function handler(req, res) {
-  // CORS headers - match working endpoints exactly
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import applyCors from '../lib/cors';
 
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
-  }
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
