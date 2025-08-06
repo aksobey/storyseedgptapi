@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "openai": "^4.0.0",
-    "replicate": "^1.0.1"
+    "replicate": "^1.0.1",
+    "@google-cloud/text-to-speech": "^5.0.0"
   }
 }

@@ -193,7 +193,49 @@ async function generateElevenLabsTTS(text, voiceId) {
 }
 
 async function generateGoogleTTS(text, voiceId) {
-  // Placeholder for Google TTS implementation
-  // This would use Google Cloud Text-to-Speech API
-  throw new Error('Google TTS not yet implemented');
+  try {
+    // Dynamic import to avoid module-level crashes
+    const textToSpeech = require('@google-cloud/text-to-speech');
+    
+    // Initialize Google Cloud client
+    const client = new textToSpeech.TextToSpeechClient({
+      credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+    });
+
+    // Parse voice ID to get language and voice name
+    // Expected format: "en-US-Standard-A" or "en-US-Wavenet-A"
+    const voiceParts = voiceId.split('-');
+    if (voiceParts.length < 3) {
+      throw new Error('Invalid Google TTS voice ID format. Expected format: "en-US-Standard-A"');
+    }
+    
+    const languageCode = `${voiceParts[0]}-${voiceParts[1]}`; // e.g., "en-US"
+    const voiceName = voiceId; // Use full voice ID as name
+
+    // Configure the request
+    const request = {
+      input: { text: text },
+      voice: { 
+        languageCode: languageCode,
+        name: voiceName
+      },
+      audioConfig: { 
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+        pitch: 0.0
+      },
+    };
+
+    // Perform the text-to-speech request
+    const [response] = await client.synthesizeSpeech(request);
+    
+    // Convert the audio content to base64
+    const audioContent = response.audioContent;
+    const base64 = Buffer.from(audioContent).toString('base64');
+    
+    return `data:audio/mp3;base64,${base64}`;
+  } catch (error) {
+    console.error('Google TTS error:', error);
+    throw new Error(`Google TTS failed: ${error.message}`);
+  }
 } 
