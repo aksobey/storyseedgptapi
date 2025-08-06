@@ -66,8 +66,40 @@ export default async function handler(req, res) {
   // Initialize Firebase only when needed
   const db = initializeFirebase();
   if (!db) {
-    console.error('[generate-audio-async] Firebase not available');
-    return res.status(500).json({ error: 'Database not available' });
+    console.warn('[generate-audio-async] Firebase not available, using fallback mode');
+    // Fallback: generate TTS directly without job tracking
+    try {
+      console.log('[generate-audio-async] Using fallback mode for provider:', tts_provider);
+      let audioUrl = null;
+      
+      if (tts_provider === 'elevenlabs') {
+        console.log('[generate-audio-async] Attempting ElevenLabs TTS...');
+        audioUrl = await generateElevenLabsTTS(text, selectedVoice);
+        console.log('[generate-audio-async] ElevenLabs TTS completed successfully');
+      } else if (tts_provider === 'google') {
+        console.log('[generate-audio-async] Attempting Google TTS...');
+        audioUrl = await generateGoogleTTS(text, selectedVoice);
+        console.log('[generate-audio-async] Google TTS completed successfully');
+      } else {
+        console.error('[generate-audio-async] Unsupported provider:', tts_provider);
+        return res.status(400).json({ error: `Unsupported TTS provider: ${tts_provider}` });
+      }
+      
+      if (audioUrl) {
+        console.log('[generate-audio-async] Fallback TTS generation successful');
+        return res.status(200).json({
+          success: true,
+          audioUrl,
+          status: 'completed'
+        });
+      } else {
+        console.error('[generate-audio-async] TTS generation returned null audioUrl');
+        return res.status(500).json({ error: 'TTS generation failed - no audio URL returned' });
+      }
+    } catch (error) {
+      console.error('[generate-audio-async] Fallback TTS generation failed:', error);
+      return res.status(500).json({ error: 'TTS generation failed: ' + error.message });
+    }
   }
 
   // Generate unique job ID
@@ -158,11 +190,15 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
 }
 
 async function generateElevenLabsTTS(text, voiceId) {
+  console.log('[generateElevenLabsTTS] Starting with voiceId:', voiceId);
+  
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
+    console.error('[generateElevenLabsTTS] Missing ElevenLabs API key');
     throw new Error('Missing ElevenLabs API key');
   }
 
+  console.log('[generateElevenLabsTTS] Making request to ElevenLabs API...');
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
     headers: {
@@ -179,16 +215,21 @@ async function generateElevenLabsTTS(text, voiceId) {
     })
   });
 
+  console.log('[generateElevenLabsTTS] Response status:', response.status);
+  
   if (!response.ok) {
     const error = await response.text();
+    console.error('[generateElevenLabsTTS] ElevenLabs API error:', error);
     throw new Error(`ElevenLabs TTS failed: ${error}`);
   }
 
+  console.log('[generateElevenLabsTTS] Converting response to base64...');
   const audioBuffer = await response.arrayBuffer();
   
   // For now, we'll return a data URL
   // In production, you'd upload to cloud storage and return the URL
   const base64 = Buffer.from(audioBuffer).toString('base64');
+  console.log('[generateElevenLabsTTS] Successfully generated base64 audio');
   return `data:audio/mpeg;base64,${base64}`;
 }
 
