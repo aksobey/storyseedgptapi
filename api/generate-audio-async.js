@@ -212,7 +212,11 @@ export default async function handler(req, res) {
 
       // Store audio in Firebase Storage instead of Firestore (size limit issue)
       let storageUrl = null;
-      if (audioUrl && bucket) {
+      const audioUrlSize = audioUrl ? audioUrl.length : 0;
+      console.log(`[generate-audio-async] Audio URL size: ${audioUrlSize} characters`);
+      
+      // If audio URL is large (>500KB) or we have bucket, try to upload to storage
+      if (audioUrl && (audioUrlSize > 500000 || bucket)) {
         try {
           console.log(`[generate-audio-async] Uploading audio to Firebase Storage for jobId: ${jobId}`);
           
@@ -229,12 +233,16 @@ export default async function handler(req, res) {
             resumable: false
           });
           
+          // Make the file publicly accessible
+          await file.makePublic();
+          
           // Get public URL
           storageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
           console.log(`[generate-audio-async] Audio uploaded to: ${storageUrl}`);
           
         } catch (uploadError) {
           console.error(`[generate-audio-async] Failed to upload audio: ${uploadError.message}`);
+          console.log(`[generate-audio-async] Falling back to data URL for jobId: ${jobId}`);
           // Continue with data URL if upload fails
           storageUrl = audioUrl;
         }
