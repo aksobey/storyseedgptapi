@@ -83,8 +83,14 @@ export default async function handler(req, res) {
   // Initialize Firebase Admin only when needed
   const { firestore, bucket } = await initializeFirebaseAdmin();
   console.log('[TTS] Using provider:', tts_provider);
-  if (!firestore || !bucket) {
-    console.warn('[TTS] ⚠️ Firebase not available, using fallback mode');
+  
+  // For Vercel serverless functions, we need to use a different async approach
+  // Instead of background processing, we'll use a "delayed response" pattern
+  const useVercelAsyncMode = firestore && bucket;
+  console.log('[TTS] Use Vercel async mode:', useVercelAsyncMode);
+  
+  if (!useVercelAsyncMode) {
+          console.warn('[TTS] ⚠️ Using fallback mode (synchronous TTS generation)');
     // Fallback: generate TTS directly without job tracking
     try {
       console.log('[generate-audio-async] Using fallback mode for provider:', tts_provider);
@@ -173,15 +179,82 @@ export default async function handler(req, res) {
     await firestore.collection('tts_jobs').doc(jobId).set(job);
     console.log(`[generate-audio-async] Job created successfully in Firestore: ${jobId}`);
 
-    // Start TTS generation in background
-    generateTTSAsync(jobId, text, selectedVoice, tts_provider);
+    // For Vercel, we need to generate TTS synchronously but simulate async behavior
+    // This allows us to keep the notification system while working within Vercel's constraints
+    console.log('[generate-audio-async] Starting synchronous TTS generation for Vercel compatibility...');
+    
+    try {
+      let audioUrl = null;
+      let error = null;
 
-    // Return immediately with job ID
-    return res.status(200).json({
-      jobId,
-      status: 'processing',
-      message: 'TTS generation started'
-    });
+      if (tts_provider === 'elevenlabs') {
+        console.log(`[generate-audio-async] Using ElevenLabs for jobId: ${jobId}`);
+        try {
+          audioUrl = await generateElevenLabsTTS(text, selectedVoice);
+          console.log(`[generate-audio-async] ElevenLabs TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
+        } catch (ttsError) {
+          console.error(`[generate-audio-async] ElevenLabs TTS failed for jobId: ${jobId}:`, ttsError);
+          error = ttsError.message;
+        }
+      } else if (tts_provider === 'google') {
+        console.log(`[generate-audio-async] Using Google TTS for jobId: ${jobId}`);
+        try {
+          audioUrl = await generateGoogleTTS(text, selectedVoice, jobId);
+          console.log(`[generate-audio-async] Google TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
+        } catch (ttsError) {
+          console.error(`[generate-audio-async] Google TTS failed for jobId: ${jobId}:`, ttsError);
+          error = ttsError.message;
+        }
+      } else {
+        error = `Unsupported TTS provider: ${tts_provider}`;
+        console.error(`[generate-audio-async] Unsupported TTS provider for jobId: ${jobId}: ${tts_provider}`);
+      }
+
+      // Update job status in Firestore
+      const updateData = {
+        status: audioUrl ? 'completed' : 'failed',
+        audioUrl: audioUrl,
+        result: audioUrl,
+        error: error,
+        completed_at: new Date().toISOString()
+      };
+      
+      console.log(`[generate-audio-async] Updating job ${jobId} with data:`, updateData);
+      await firestore.collection('tts_jobs').doc(jobId).set(updateData, { merge: true });
+      console.log(`[generate-audio-async] Job ${jobId} updated to status: ${updateData.status}`);
+
+      // Return the completed result immediately
+      if (audioUrl) {
+        return res.status(200).json({
+          success: true,
+          audioUrl,
+          status: 'completed',
+          jobId
+        });
+      } else {
+        return res.status(500).json({
+          error: error || 'TTS generation failed',
+          status: 'failed',
+          jobId
+        });
+      }
+      
+    } catch (error) {
+      console.error(`[generate-audio-async] Error in synchronous TTS generation: ${error.message}`);
+      
+      // Update job with error
+      await firestore.collection('tts_jobs').doc(jobId).set({
+        status: 'failed',
+        error: error.message,
+        completed_at: new Date().toISOString()
+      }, { merge: true });
+      
+      return res.status(500).json({
+        error: error.message,
+        status: 'failed',
+        jobId
+      });
+    }
   } catch (error) {
     console.error(`[generate-audio-async] Error creating job: ${error.message}`);
     return res.status(500).json({ error: 'Failed to create job' });

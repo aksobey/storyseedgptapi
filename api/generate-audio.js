@@ -8,6 +8,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  console.log('[generate-audio] Request received at:', new Date().toISOString());
+  console.log('[generate-audio] Request method:', req.method);
+  console.log('[generate-audio] Request body:', req.body);
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
