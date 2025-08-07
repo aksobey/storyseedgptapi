@@ -1,44 +1,31 @@
-// Firebase imports - will be loaded only when needed
-let firebaseApp, firestore, doc, setDoc, getDoc, updateDoc;
+// Firebase Admin imports - will be loaded only when needed
+let firebaseAdminApp, firestore, bucket;
 
-// Initialize Firebase function - called only when needed
-async function initializeFirebase() {
-  if (firestore) return firestore; // Already initialized
+// Initialize Firebase Admin function - called only when needed
+async function initializeFirebaseAdmin() {
+  if (firestore && bucket) return { firestore, bucket }; // Already initialized
   
   try {
     // Dynamic imports to avoid module-level crashes
-    const { initializeApp } = await import('firebase/app');
-    const { getFirestore } = await import('firebase/firestore');
+    const { initializeApp, cert } = await import('firebase-admin/app');
+    const { getStorage } = await import('firebase-admin/storage');
+    const { getFirestore, Timestamp } = await import('firebase-admin/firestore');
     
-    const firebaseConfig = {
-      apiKey: process.env.FIREBASE_API_KEY,
-      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.FIREBASE_PROJECT_ID,
+    const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    
+    firebaseAdminApp = initializeApp({
+      credential: cert(serviceAccount),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.FIREBASE_APP_ID
-    };
-
-    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-      console.error('[generate-audio-async] Missing Firebase environment variables');
-      return null;
-    }
-
-    firebaseApp = initializeApp(firebaseConfig);
-    firestore = getFirestore(firebaseApp);
+    });
     
-    // Get Firestore functions
-    const { doc: docFn, setDoc: setDocFn, getDoc: getDocFn, updateDoc: updateDocFn } = await import('firebase/firestore');
-    doc = docFn;
-    setDoc = setDocFn;
-    getDoc = getDocFn;
-    updateDoc = updateDocFn;
+    firestore = getFirestore(firebaseAdminApp);
+    bucket = getStorage(firebaseAdminApp).bucket();
     
-    console.log('[generate-audio-async] Firebase initialized successfully');
-    return firestore;
+    console.log('[initializeFirebaseAdmin] Firebase Admin initialized successfully');
+    return { firestore, bucket };
   } catch (error) {
-    console.error('[generate-audio-async] Firebase initialization failed:', error.message);
-    return null;
+    console.error('[initializeFirebaseAdmin] Firebase Admin initialization failed:', error.message);
+    return { firestore: null, bucket: null };
   }
 }
 
@@ -75,9 +62,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing "text" in request body' });
   }
 
-  // Initialize Firebase only when needed
-  const db = await initializeFirebase();
-  if (!db) {
+  // Initialize Firebase Admin only when needed
+  const { firestore, bucket } = await initializeFirebaseAdmin();
+  if (!firestore || !bucket) {
     console.warn('[generate-audio-async] Firebase not available, using fallback mode');
     // Fallback: generate TTS directly without job tracking
     try {
@@ -90,7 +77,9 @@ export default async function handler(req, res) {
         console.log('[generate-audio-async] ElevenLabs TTS completed successfully, audioUrl type:', typeof audioUrl, 'length:', audioUrl ? audioUrl.length : 'null');
       } else if (tts_provider === 'google') {
         console.log('[generate-audio-async] Attempting Google TTS...');
-        audioUrl = await generateGoogleTTS(text, selectedVoice);
+        // For fallback mode, create a temporary job ID
+        const tempJobId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        audioUrl = await generateGoogleTTS(text, selectedVoice, tempJobId);
         console.log('[generate-audio-async] Google TTS completed successfully, audioUrl type:', typeof audioUrl, 'length:', audioUrl ? audioUrl.length : 'null');
       } else {
         console.error('[generate-audio-async] Unsupported provider:', tts_provider);
@@ -134,15 +123,14 @@ export default async function handler(req, res) {
   };
 
   try {
-    // Store job in Firestore
-    const firestore = await initializeFirebase();
+    // Store job in Firestore using Firebase Admin
+    const { firestore } = await initializeFirebaseAdmin();
     if (!firestore) {
       console.error('[generate-audio-async] Firebase not available for job creation');
       return res.status(500).json({ error: 'Database not available' });
     }
     
-    const jobRef = doc(firestore, 'tts_jobs', jobId);
-    await setDoc(jobRef, job);
+    await firestore.collection('tts_jobs').doc(jobId).set(job);
     console.log(`[generate-audio-async] Job created in Firestore: ${jobId}`);
 
     // Start TTS generation in background
@@ -178,7 +166,7 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
     } else if (ttsProvider === 'google') {
       console.log(`[generateTTSAsync] Using Google TTS for jobId: ${jobId}`);
       try {
-        audioUrl = await generateGoogleTTS(text, voiceId);
+        audioUrl = await generateGoogleTTS(text, voiceId, jobId);
         console.log(`[generateTTSAsync] Google TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
       } catch (ttsError) {
         console.error(`[generateTTSAsync] Google TTS failed for jobId: ${jobId}:`, ttsError);
@@ -189,32 +177,29 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       console.error(`[generateTTSAsync] Unsupported TTS provider for jobId: ${jobId}: ${ttsProvider}`);
     }
 
-    // Update job status in Firestore
+    // Update job status in Firestore using Firebase Admin
     try {
       console.log(`[generateTTSAsync] Attempting to update job ${jobId} in Firestore...`);
-      const firestore = await initializeFirebase();
+      const { firestore, Timestamp } = await initializeFirebaseAdmin();
       if (!firestore) {
         console.error(`[generateTTSAsync] Firebase not available for job ${jobId}`);
         return;
       }
       
-      const jobRef = doc(firestore, 'tts_jobs', jobId);
-      console.log(`[generateTTSAsync] Job reference created for ${jobId}`);
-      
-      const jobDoc = await getDoc(jobRef);
-      console.log(`[generateTTSAsync] Job document exists: ${jobDoc.exists()}`);
+      const jobDoc = await firestore.collection('tts_jobs').doc(jobId).get();
+      console.log(`[generateTTSAsync] Job document exists: ${jobDoc.exists}`);
     
-      if (jobDoc.exists()) {
+      if (jobDoc.exists) {
         const updateData = {
           status: audioUrl ? 'completed' : 'failed',
           audioUrl: audioUrl, // Use audioUrl field for consistency
           result: audioUrl,   // Keep result for backward compatibility
           error: error,
-          completed_at: new Date().toISOString()
+          completed_at: Timestamp.now()
         };
         console.log(`[generateTTSAsync] Updating job ${jobId} with data:`, updateData);
         
-        await updateDoc(jobRef, updateData);
+        await firestore.collection('tts_jobs').doc(jobId).set(updateData, { merge: true });
         console.log(`[generateTTSAsync] Job ${jobId} successfully updated to status: ${updateData.status}`);
         
         if (audioUrl) {
@@ -235,18 +220,17 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
     }
   } catch (err) {
     console.error(`[generateTTSAsync] Error: ${err.message}`);
-    // Update job with error in Firestore
+    // Update job with error in Firestore using Firebase Admin
     try {
-      const firestore = await initializeFirebase();
+      const { firestore, Timestamp } = await initializeFirebaseAdmin();
       if (firestore) {
-        const jobRef = doc(firestore, 'tts_jobs', jobId);
-        const jobDoc = await getDoc(jobRef);
-        if (jobDoc.exists()) {
-          await updateDoc(jobRef, {
+        const jobDoc = await firestore.collection('tts_jobs').doc(jobId).get();
+        if (jobDoc.exists) {
+          await firestore.collection('tts_jobs').doc(jobId).set({
             status: 'failed',
             error: err.message || 'TTS generation failed',
-            completed_at: new Date().toISOString()
-          });
+            completed_at: Timestamp.now()
+          }, { merge: true });
         } else {
           console.warn(`[generateTTSAsync] Failed to update job: jobId not found`);
         }
@@ -303,50 +287,32 @@ async function generateElevenLabsTTS(text, voiceId) {
   return dataUrl;
 }
 
-async function generateGoogleTTS(text, voiceId) {
+async function generateGoogleTTS(text, voiceId, jobId) {
   try {
-    // Validate voice ID format
     if (!voiceId || !voiceId.startsWith('en-')) {
       throw new Error(`Invalid or unsupported Google TTS voice: ${voiceId}`);
     }
-    
-    // Debug: Check Google credentials
-    console.log('[DEBUG] Raw GOOGLE_APPLICATION_CREDENTIALS_JSON (first 100 chars):', process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON?.slice(0, 100));
-    
-    try {
-      const parsed = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-      console.log('[DEBUG] Successfully parsed credentials. Service account email:', parsed.client_email);
-    } catch (err) {
-      console.error('[ERROR] Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', err.message);
-      throw new Error(`Google credentials parsing failed: ${err.message}`);
-    }
-    
-    // Dynamic import to avoid module-level crashes
+
+    console.log('[generateGoogleTTS] Starting Google TTS generation for jobId:', jobId);
+    console.log('[generateGoogleTTS] Voice ID:', voiceId);
+    console.log('[generateGoogleTTS] Text length:', text.length);
+
     const textToSpeech = await import('@google-cloud/text-to-speech');
-    
-    // Initialize Google Cloud client
     const client = new textToSpeech.default.TextToSpeechClient({
       credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
     });
 
-    // Parse voice ID to get language and voice name
-    // Expected format: "en-US-Standard-A" or "en-US-Wavenet-A"
-    const voiceParts = voiceId.split('-');
-    if (voiceParts.length < 3) {
-      throw new Error('Invalid Google TTS voice ID format. Expected format: "en-US-Standard-A"');
-    }
-    
-    const languageCode = `${voiceParts[0]}-${voiceParts[1]}`; // e.g., "en-US"
-    const voiceName = voiceId; // Use full voice ID as name
+    const [lang, region, ...rest] = voiceId.split('-');
+    const languageCode = `${lang}-${region}`;
+    const voiceName = voiceId;
 
-    // Configure the request
     const request = {
-      input: { text: text },
-      voice: { 
-        languageCode: languageCode,
+      input: { text },
+      voice: {
+        languageCode,
         name: voiceName
       },
-      audioConfig: { 
+      audioConfig: {
         audioEncoding: 'MP3',
         speakingRate: 1.0,
         pitch: 0.0
@@ -360,79 +326,31 @@ async function generateGoogleTTS(text, voiceId) {
       textLength: text.length,
       audioEncoding: 'MP3'
     });
-    
-    // Perform the text-to-speech request
+
     const [response] = await client.synthesizeSpeech(request);
-    
+    if (!response.audioContent) throw new Error('No audio content returned from Google TTS');
+
     console.log('[generateGoogleTTS] Google TTS API response received');
-    console.log('[generateGoogleTTS] Response has audioContent:', !!response.audioContent);
-    console.log('[generateGoogleTTS] Audio content length:', response.audioContent?.length || 'null');
-    
-    // Get the binary audio content
-    const audioContent = response.audioContent;
-    if (!audioContent) {
-      throw new Error('Google TTS returned no audio content');
-    }
-    
-    console.log('[generateGoogleTTS] Audio content received, length:', audioContent.length);
-    
-    // Save to Firebase Storage and return public URL
-    try {
-      console.log('[generateGoogleTTS] Attempting to save audio to Firebase Storage...');
-      
-      // Import Firebase Storage
-      const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-      
-      // Initialize Firebase Storage
-      const { initializeApp } = await import('firebase/app');
-      const firebaseConfig = {
-        apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID
-      };
-      
-      const app = initializeApp(firebaseConfig);
-      const storage = getStorage(app);
-      
-      // Create unique filename
-      const fileName = `tts_audio/google_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp3`;
-      const storageRef = ref(storage, fileName);
-      
-      console.log('[generateGoogleTTS] Uploading to Firebase Storage:', fileName);
-      
-      // Upload the audio content
-      await uploadBytes(storageRef, audioContent, {
-        contentType: 'audio/mpeg'
-      });
-      
-      // Get the download URL
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', downloadURL);
-      
-      return downloadURL;
-      
-    } catch (storageError) {
-      console.error('[generateGoogleTTS] Firebase Storage upload failed:', storageError);
-      console.log('[generateGoogleTTS] Falling back to base64 data URL...');
-      
-      // Fallback to base64 data URL
-      const base64 = Buffer.from(audioContent).toString('base64');
-      const dataUrl = `data:audio/mp3;base64,${base64}`;
-      
-      console.log('[generateGoogleTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
-      return dataUrl;
-    }
-  } catch (error) {
-    console.error('[generateGoogleTTS] Google TTS API error:', error);
-    console.error('[generateGoogleTTS] Error details:', {
-      message: error.message,
-      code: error.code,
-      status: error.status,
-      details: error.details
+    console.log('[generateGoogleTTS] Audio content length:', response.audioContent.length);
+
+    const { bucket } = await initializeFirebaseAdmin();
+    const filePath = `tts_audio/google_${jobId}.mp3`;
+    const file = bucket.file(filePath);
+
+    console.log('[generateGoogleTTS] Uploading to Firebase Storage:', filePath);
+
+    await file.save(response.audioContent, {
+      metadata: { contentType: 'audio/mpeg' },
+      public: true
     });
+
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+    console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', publicUrl);
+    
+    return publicUrl;
+
+  } catch (error) {
+    console.error('[generateGoogleTTS] Error:', error.message);
     throw new Error(`Google TTS failed: ${error.message}`);
   }
 } 
