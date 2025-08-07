@@ -195,6 +195,11 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
         };
         await updateDoc(jobRef, updateData);
         console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${updateData.status}`);
+        if (audioUrl) {
+          console.log(`[generateTTSAsync] Job ${jobId} completed with audioUrl length: ${audioUrl.length}`);
+        } else {
+          console.log(`[generateTTSAsync] Job ${jobId} failed with error: ${error}`);
+        }
       } else {
         console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
       }
@@ -321,16 +326,42 @@ async function generateGoogleTTS(text, voiceId) {
       },
     };
 
+    console.log('[generateGoogleTTS] Making request to Google TTS API...');
+    console.log('[generateGoogleTTS] Request config:', {
+      languageCode,
+      voiceName,
+      textLength: text.length,
+      audioEncoding: 'MP3'
+    });
+    
     // Perform the text-to-speech request
     const [response] = await client.synthesizeSpeech(request);
     
+    console.log('[generateGoogleTTS] Google TTS API response received');
+    console.log('[generateGoogleTTS] Response has audioContent:', !!response.audioContent);
+    console.log('[generateGoogleTTS] Audio content length:', response.audioContent?.length || 'null');
+    
     // Convert the audio content to base64
     const audioContent = response.audioContent;
-    const base64 = Buffer.from(audioContent).toString('base64');
+    if (!audioContent) {
+      throw new Error('Google TTS returned no audio content');
+    }
     
-    return `data:audio/mp3;base64,${base64}`;
+    const base64 = Buffer.from(audioContent).toString('base64');
+    const dataUrl = `data:audio/mp3;base64,${base64}`;
+    
+    console.log('[generateGoogleTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
+    console.log('[generateGoogleTTS] DataUrl starts with:', dataUrl.substring(0, 50) + '...');
+    
+    return dataUrl;
   } catch (error) {
-    console.error('Google TTS error:', error);
+    console.error('[generateGoogleTTS] Google TTS API error:', error);
+    console.error('[generateGoogleTTS] Error details:', {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      details: error.details
+    });
     throw new Error(`Google TTS failed: ${error.message}`);
   }
 } 
