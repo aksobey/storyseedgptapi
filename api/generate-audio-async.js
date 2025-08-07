@@ -207,7 +207,8 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       if (jobDoc.exists()) {
         const updateData = {
           status: audioUrl ? 'completed' : 'failed',
-          result: audioUrl,
+          audioUrl: audioUrl, // Use audioUrl field for consistency
+          result: audioUrl,   // Keep result for backward compatibility
           error: error,
           completed_at: new Date().toISOString()
         };
@@ -375,15 +376,55 @@ async function generateGoogleTTS(text, voiceId) {
     
     console.log('[generateGoogleTTS] Audio content received, length:', audioContent.length);
     
-    // For now, return base64 data URL (same as ElevenLabs)
-    // TODO: Implement Firebase Storage upload for production
-    const base64 = Buffer.from(audioContent).toString('base64');
-    const dataUrl = `data:audio/mp3;base64,${base64}`;
-    
-    console.log('[generateGoogleTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
-    console.log('[generateGoogleTTS] DataUrl starts with:', dataUrl.substring(0, 50) + '...');
-    
-    return dataUrl;
+    // Save to Firebase Storage and return public URL
+    try {
+      console.log('[generateGoogleTTS] Attempting to save audio to Firebase Storage...');
+      
+      // Import Firebase Storage
+      const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+      
+      // Initialize Firebase Storage
+      const { initializeApp } = await import('firebase/app');
+      const firebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID
+      };
+      
+      const app = initializeApp(firebaseConfig);
+      const storage = getStorage(app);
+      
+      // Create unique filename
+      const fileName = `tts_audio/google_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp3`;
+      const storageRef = ref(storage, fileName);
+      
+      console.log('[generateGoogleTTS] Uploading to Firebase Storage:', fileName);
+      
+      // Upload the audio content
+      await uploadBytes(storageRef, audioContent, {
+        contentType: 'audio/mpeg'
+      });
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', downloadURL);
+      
+      return downloadURL;
+      
+    } catch (storageError) {
+      console.error('[generateGoogleTTS] Firebase Storage upload failed:', storageError);
+      console.log('[generateGoogleTTS] Falling back to base64 data URL...');
+      
+      // Fallback to base64 data URL
+      const base64 = Buffer.from(audioContent).toString('base64');
+      const dataUrl = `data:audio/mp3;base64,${base64}`;
+      
+      console.log('[generateGoogleTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
+      return dataUrl;
+    }
   } catch (error) {
     console.error('[generateGoogleTTS] Google TTS API error:', error);
     console.error('[generateGoogleTTS] Error details:', {
