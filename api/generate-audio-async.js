@@ -13,8 +13,13 @@ async function initializeFirebaseAdmin() {
     
     const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
     
+    console.log('[initializeFirebaseAdmin] Service account email:', serviceAccount.client_email);
+    console.log('[initializeFirebaseAdmin] Project ID:', serviceAccount.project_id);
+    console.log('[initializeFirebaseAdmin] Storage bucket:', process.env.FIREBASE_STORAGE_BUCKET);
+    
     firebaseAdminApp = initializeApp({
       credential: cert(serviceAccount),
+      projectId: serviceAccount.project_id,
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
     });
     
@@ -22,9 +27,17 @@ async function initializeFirebaseAdmin() {
     bucket = getStorage(firebaseAdminApp).bucket();
     
     console.log('[initializeFirebaseAdmin] Firebase Admin initialized successfully');
+    console.log('[initializeFirebaseAdmin] Firestore instance created');
+    console.log('[initializeFirebaseAdmin] Storage bucket instance created');
+    
     return { firestore, bucket };
   } catch (error) {
     console.error('[initializeFirebaseAdmin] Firebase Admin initialization failed:', error.message);
+    console.error('[initializeFirebaseAdmin] Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
     return { firestore: null, bucket: null };
   }
 }
@@ -130,8 +143,11 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database not available' });
     }
     
+    console.log('[generate-audio-async] Attempting to create job in Firestore:', jobId);
+    console.log('[generate-audio-async] Job data:', job);
+    
     await firestore.collection('tts_jobs').doc(jobId).set(job);
-    console.log(`[generate-audio-async] Job created in Firestore: ${jobId}`);
+    console.log(`[generate-audio-async] Job created successfully in Firestore: ${jobId}`);
 
     // Start TTS generation in background
     generateTTSAsync(jobId, text, selectedVoice, tts_provider);
