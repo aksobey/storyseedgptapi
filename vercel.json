@@ -18,7 +18,8 @@
     { "src": "api/check-image-config.js", "use": "@vercel/node" },
     { "src": "api/generate-stable-diffusion-image.js", "use": "@vercel/node" },
     { "src": "api/generate-replicate-image.js", "use": "@vercel/node" },
-    { "src": "api/test-elevenlabs.js", "use": "@vercel/node" }
+    { "src": "api/test-elevenlabs.js", "use": "@vercel/node" },
+    { "src": "api/test-elevenlabs-simple.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/generate-character", "dest": "api/generate-character.js" },
@@ -38,6 +39,7 @@
     { "src": "/api/check-image-config", "dest": "api/check-image-config.js" },
     { "src": "/api/generate-stable-diffusion-image", "dest": "api/generate-stable-diffusion-image.js" },
     { "src": "/api/generate-replicate-image", "dest": "api/generate-replicate-image.js" },
-    { "src": "/api/test-elevenlabs", "dest": "api/test-elevenlabs.js" }
+    { "src": "/api/test-elevenlabs", "dest": "api/test-elevenlabs.js" },
+    { "src": "/api/test-elevenlabs-simple", "dest": "api/test-elevenlabs-simple.js" }
   ]
 } 
