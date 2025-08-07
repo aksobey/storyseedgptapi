@@ -2,13 +2,13 @@
 let firebaseApp, firestore, doc, setDoc, getDoc, updateDoc;
 
 // Initialize Firebase function - called only when needed
-function initializeFirebase() {
+async function initializeFirebase() {
   if (firestore) return firestore; // Already initialized
   
   try {
     // Dynamic imports to avoid module-level crashes
-    const { initializeApp } = require('firebase/app');
-    const { getFirestore } = require('firebase/firestore');
+    const { initializeApp } = await import('firebase/app');
+    const { getFirestore } = await import('firebase/firestore');
     
     const firebaseConfig = {
       apiKey: process.env.FIREBASE_API_KEY,
@@ -28,7 +28,7 @@ function initializeFirebase() {
     firestore = getFirestore(firebaseApp);
     
     // Get Firestore functions
-    const { doc: docFn, setDoc: setDocFn, getDoc: getDocFn, updateDoc: updateDocFn } = require('firebase/firestore');
+    const { doc: docFn, setDoc: setDocFn, getDoc: getDocFn, updateDoc: updateDocFn } = await import('firebase/firestore');
     doc = docFn;
     setDoc = setDocFn;
     getDoc = getDocFn;
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   }
 
   // Initialize Firebase only when needed
-  const db = initializeFirebase();
+  const db = await initializeFirebase();
   if (!db) {
     console.warn('[generate-audio-async] Firebase not available, using fallback mode');
     // Fallback: generate TTS directly without job tracking
@@ -128,7 +128,13 @@ export default async function handler(req, res) {
 
   try {
     // Store job in Firestore
-    const jobRef = doc(db, 'tts_jobs', jobId);
+    const firestore = await initializeFirebase();
+    if (!firestore) {
+      console.error('[generate-audio-async] Firebase not available for job creation');
+      return res.status(500).json({ error: 'Database not available' });
+    }
+    
+    const jobRef = doc(firestore, 'tts_jobs', jobId);
     await setDoc(jobRef, job);
     console.log(`[generate-audio-async] Job created in Firestore: ${jobId}`);
 
@@ -163,7 +169,13 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
     }
 
     // Update job status in Firestore
-    const jobRef = doc(db, 'tts_jobs', jobId);
+    const firestore = await initializeFirebase();
+    if (!firestore) {
+      console.error(`[generateTTSAsync] Firebase not available for job ${jobId}`);
+      return;
+    }
+    
+    const jobRef = doc(firestore, 'tts_jobs', jobId);
     const jobDoc = await getDoc(jobRef);
     
     if (jobDoc.exists()) {
