@@ -169,40 +169,46 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
     }
 
     // Update job status in Firestore
-    const firestore = await initializeFirebase();
-    if (!firestore) {
-      console.error(`[generateTTSAsync] Firebase not available for job ${jobId}`);
-      return;
-    }
+    try {
+      const firestore = await initializeFirebase();
+      if (!firestore) {
+        console.error(`[generateTTSAsync] Firebase not available for job ${jobId}`);
+        return;
+      }
+      
+      const jobRef = doc(firestore, 'tts_jobs', jobId);
+      const jobDoc = await getDoc(jobRef);
     
-    const jobRef = doc(firestore, 'tts_jobs', jobId);
-    const jobDoc = await getDoc(jobRef);
-    
-    if (jobDoc.exists()) {
-      const updateData = {
-        status: audioUrl ? 'completed' : 'failed',
-        result: audioUrl,
-        error: error,
-        completed_at: new Date().toISOString()
-      };
-      await updateDoc(jobRef, updateData);
-      console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${updateData.status}`);
-    } else {
-      console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
+      if (jobDoc.exists()) {
+        const updateData = {
+          status: audioUrl ? 'completed' : 'failed',
+          result: audioUrl,
+          error: error,
+          completed_at: new Date().toISOString()
+        };
+        await updateDoc(jobRef, updateData);
+        console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${updateData.status}`);
+      } else {
+        console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
+      }
+    } catch (updateError) {
+      console.error(`[generateTTSAsync] Failed to update job with error: ${updateError.message}`);
     }
-
   } catch (err) {
     console.error(`[generateTTSAsync] Error: ${err.message}`);
     // Update job with error in Firestore
     try {
-      const jobRef = doc(db, 'tts_jobs', jobId);
-      const jobDoc = await getDoc(jobRef);
-      if (jobDoc.exists()) {
-        await updateDoc(jobRef, {
-          status: 'failed',
-          error: err.message,
-          completed_at: new Date().toISOString()
-        });
+      const firestore = await initializeFirebase();
+      if (firestore) {
+        const jobRef = doc(firestore, 'tts_jobs', jobId);
+        const jobDoc = await getDoc(jobRef);
+        if (jobDoc.exists()) {
+          await updateDoc(jobRef, {
+            status: 'failed',
+            error: err.message,
+            completed_at: new Date().toISOString()
+          });
+        }
       }
     } catch (updateError) {
       console.error(`[generateTTSAsync] Failed to update job with error: ${updateError.message}`);
