@@ -230,13 +230,13 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       console.log(`[generateTTSAsync] Job document exists: ${jobDoc.exists}`);
     
       if (jobDoc.exists) {
-        const updateData = {
-          status: audioUrl ? 'completed' : 'failed',
-          audioUrl: audioUrl, // Use audioUrl field for consistency
-          result: audioUrl,   // Keep result for backward compatibility
-          error: error,
-          completed_at: Timestamp.now()
-        };
+              const updateData = {
+        status: audioUrl ? 'completed' : 'failed',
+        audioUrl: audioUrl, // Use audioUrl field for consistency
+        result: audioUrl,   // Keep result for backward compatibility
+        error: error,
+        completed_at: new Date().toISOString()
+      };
         console.log(`[generateTTSAsync] Updating job ${jobId} with data:`, updateData);
         
         await firestore.collection('tts_jobs').doc(jobId).set(updateData, { merge: true });
@@ -269,7 +269,7 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
           await firestore.collection('tts_jobs').doc(jobId).set({
             status: 'failed',
             error: err.message || 'TTS generation failed',
-            completed_at: Timestamp.now()
+            completed_at: new Date().toISOString()
           }, { merge: true });
         } else {
           console.warn(`[generateTTSAsync] Failed to update job: jobId not found`);
@@ -291,40 +291,54 @@ async function generateElevenLabsTTS(text, voiceId) {
   }
 
   console.log('[generateElevenLabsTTS] Making request to ElevenLabs API...');
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': apiKey,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      text,
-      model_id: 'eleven_monolingual_v1',
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75
-      }
-    })
-  });
-
-  console.log('[generateElevenLabsTTS] Response status:', response.status);
+  console.log('[generateElevenLabsTTS] API Key present:', !!apiKey);
+  console.log('[generateElevenLabsTTS] Voice ID:', voiceId);
+  console.log('[generateElevenLabsTTS] Text length:', text.length);
   
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('[generateElevenLabsTTS] ElevenLabs API error:', error);
-    throw new Error(`ElevenLabs TTS failed: ${error}`);
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75
+        }
+      })
+    });
+
+    console.log('[generateElevenLabsTTS] Response status:', response.status);
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[generateElevenLabsTTS] ElevenLabs API error:', error);
+      throw new Error(`ElevenLabs TTS failed: ${error}`);
+    }
+
+    console.log('[generateElevenLabsTTS] Converting response to base64...');
+    const audioBuffer = await response.arrayBuffer();
+    
+    // For now, we'll return a data URL
+    // In production, you'd upload to cloud storage and return the URL
+    const base64 = Buffer.from(audioBuffer).toString('base64');
+    const dataUrl = `data:audio/mpeg;base64,${base64}`;
+    console.log('[generateElevenLabsTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
+    console.log('[generateElevenLabsTTS] DataUrl starts with:', dataUrl.substring(0, 50) + '...');
+    return dataUrl;
+  } catch (fetchError) {
+    console.error('[generateElevenLabsTTS] Fetch error:', fetchError);
+    console.error('[generateElevenLabsTTS] Error details:', {
+      message: fetchError.message,
+      code: fetchError.code,
+      stack: fetchError.stack
+    });
+    throw new Error(`ElevenLabs API request failed: ${fetchError.message}`);
   }
-
-  console.log('[generateElevenLabsTTS] Converting response to base64...');
-  const audioBuffer = await response.arrayBuffer();
-  
-  // For now, we'll return a data URL
-  // In production, you'd upload to cloud storage and return the URL
-  const base64 = Buffer.from(audioBuffer).toString('base64');
-  const dataUrl = `data:audio/mpeg;base64,${base64}`;
-  console.log('[generateElevenLabsTTS] Successfully generated base64 audio, dataUrl length:', dataUrl.length);
-  console.log('[generateElevenLabsTTS] DataUrl starts with:', dataUrl.substring(0, 50) + '...');
-  return dataUrl;
 }
 
 async function generateGoogleTTS(text, voiceId, jobId) {
