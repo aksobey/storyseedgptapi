@@ -278,6 +278,17 @@ async function generateGoogleTTS(text, voiceId) {
       throw new Error(`Invalid or unsupported Google TTS voice: ${voiceId}`);
     }
     
+    // Debug: Check Google credentials
+    console.log('[DEBUG] Raw GOOGLE_APPLICATION_CREDENTIALS_JSON (first 100 chars):', process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON?.slice(0, 100));
+    
+    try {
+      const parsed = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+      console.log('[DEBUG] Successfully parsed credentials. Service account email:', parsed.client_email);
+    } catch (err) {
+      console.error('[ERROR] Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', err.message);
+      throw new Error(`Google credentials parsing failed: ${err.message}`);
+    }
+    
     // Dynamic import to avoid module-level crashes
     const textToSpeech = await import('@google-cloud/text-to-speech');
     
