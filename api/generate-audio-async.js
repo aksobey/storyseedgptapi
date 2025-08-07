@@ -210,11 +210,43 @@ export default async function handler(req, res) {
         console.error(`[generate-audio-async] Unsupported TTS provider for jobId: ${jobId}: ${tts_provider}`);
       }
 
-      // Update job status in Firestore
+      // Store audio in Firebase Storage instead of Firestore (size limit issue)
+      let storageUrl = null;
+      if (audioUrl && bucket) {
+        try {
+          console.log(`[generate-audio-async] Uploading audio to Firebase Storage for jobId: ${jobId}`);
+          
+          // Convert data URL to buffer
+          const base64Data = audioUrl.replace(/^data:audio\/mpeg;base64,/, '');
+          const audioBuffer = Buffer.from(base64Data, 'base64');
+          
+          // Upload to Firebase Storage
+          const filePath = `tts_audio/${jobId}.mp3`;
+          const file = bucket.file(filePath);
+          
+          await file.save(audioBuffer, {
+            metadata: { contentType: 'audio/mpeg' },
+            resumable: false
+          });
+          
+          // Get public URL
+          storageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+          console.log(`[generate-audio-async] Audio uploaded to: ${storageUrl}`);
+          
+        } catch (uploadError) {
+          console.error(`[generate-audio-async] Failed to upload audio: ${uploadError.message}`);
+          // Continue with data URL if upload fails
+          storageUrl = audioUrl;
+        }
+      } else {
+        storageUrl = audioUrl;
+      }
+
+      // Update job status in Firestore (without the large audio data)
       const updateData = {
         status: audioUrl ? 'completed' : 'failed',
-        audioUrl: audioUrl,
-        result: audioUrl,
+        audioUrl: storageUrl, // Use storage URL instead of data URL
+        result: storageUrl,
         error: error,
         completed_at: new Date().toISOString()
       };
@@ -227,7 +259,7 @@ export default async function handler(req, res) {
       if (audioUrl) {
         return res.status(200).json({
           success: true,
-          audioUrl,
+          audioUrl: storageUrl, // Use storage URL instead of data URL
           status: 'completed',
           jobId
         });
