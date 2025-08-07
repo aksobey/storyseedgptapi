@@ -168,15 +168,30 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
 
     if (ttsProvider === 'elevenlabs') {
       console.log(`[generateTTSAsync] Using ElevenLabs for jobId: ${jobId}`);
-      audioUrl = await generateElevenLabsTTS(text, voiceId);
+      try {
+        audioUrl = await generateElevenLabsTTS(text, voiceId);
+        console.log(`[generateTTSAsync] ElevenLabs TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
+      } catch (ttsError) {
+        console.error(`[generateTTSAsync] ElevenLabs TTS failed for jobId: ${jobId}:`, ttsError);
+        error = ttsError.message;
+      }
     } else if (ttsProvider === 'google') {
-      audioUrl = await generateGoogleTTS(text, voiceId);
+      console.log(`[generateTTSAsync] Using Google TTS for jobId: ${jobId}`);
+      try {
+        audioUrl = await generateGoogleTTS(text, voiceId);
+        console.log(`[generateTTSAsync] Google TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
+      } catch (ttsError) {
+        console.error(`[generateTTSAsync] Google TTS failed for jobId: ${jobId}:`, ttsError);
+        error = ttsError.message;
+      }
     } else {
       error = `Unsupported TTS provider: ${ttsProvider}`;
+      console.error(`[generateTTSAsync] Unsupported TTS provider for jobId: ${jobId}: ${ttsProvider}`);
     }
 
     // Update job status in Firestore
     try {
+      console.log(`[generateTTSAsync] Attempting to update job ${jobId} in Firestore...`);
       const firestore = await initializeFirebase();
       if (!firestore) {
         console.error(`[generateTTSAsync] Firebase not available for job ${jobId}`);
@@ -184,7 +199,10 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
       }
       
       const jobRef = doc(firestore, 'tts_jobs', jobId);
+      console.log(`[generateTTSAsync] Job reference created for ${jobId}`);
+      
       const jobDoc = await getDoc(jobRef);
+      console.log(`[generateTTSAsync] Job document exists: ${jobDoc.exists()}`);
     
       if (jobDoc.exists()) {
         const updateData = {
@@ -193,18 +211,26 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
           error: error,
           completed_at: new Date().toISOString()
         };
+        console.log(`[generateTTSAsync] Updating job ${jobId} with data:`, updateData);
+        
         await updateDoc(jobRef, updateData);
-        console.log(`[generateTTSAsync] Job ${jobId} updated to status: ${updateData.status}`);
+        console.log(`[generateTTSAsync] Job ${jobId} successfully updated to status: ${updateData.status}`);
+        
         if (audioUrl) {
           console.log(`[generateTTSAsync] Job ${jobId} completed with audioUrl length: ${audioUrl.length}`);
         } else {
           console.log(`[generateTTSAsync] Job ${jobId} failed with error: ${error}`);
         }
       } else {
-        console.log(`[generateTTSAsync] Job ${jobId} not found when updating status`);
+        console.error(`[generateTTSAsync] Job ${jobId} not found when updating status`);
       }
     } catch (updateError) {
-      console.error(`[generateTTSAsync] Failed to update job with error: ${updateError.message}`);
+      console.error(`[generateTTSAsync] Failed to update job ${jobId} with error:`, updateError);
+      console.error(`[generateTTSAsync] Error details:`, {
+        message: updateError.message,
+        code: updateError.code,
+        stack: updateError.stack
+      });
     }
   } catch (err) {
     console.error(`[generateTTSAsync] Error: ${err.message}`);
@@ -341,12 +367,16 @@ async function generateGoogleTTS(text, voiceId) {
     console.log('[generateGoogleTTS] Response has audioContent:', !!response.audioContent);
     console.log('[generateGoogleTTS] Audio content length:', response.audioContent?.length || 'null');
     
-    // Convert the audio content to base64
+    // Get the binary audio content
     const audioContent = response.audioContent;
     if (!audioContent) {
       throw new Error('Google TTS returned no audio content');
     }
     
+    console.log('[generateGoogleTTS] Audio content received, length:', audioContent.length);
+    
+    // For now, return base64 data URL (same as ElevenLabs)
+    // TODO: Implement Firebase Storage upload for production
     const base64 = Buffer.from(audioContent).toString('base64');
     const dataUrl = `data:audio/mp3;base64,${base64}`;
     
