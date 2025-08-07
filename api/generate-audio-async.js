@@ -11,24 +11,29 @@ async function initializeFirebaseAdmin() {
     const { getStorage } = await import('firebase-admin/storage');
     const { getFirestore, Timestamp } = await import('firebase-admin/firestore');
     
-    const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+      console.log('[TTS] ✅ Parsed GOOGLE_APPLICATION_CREDENTIALS_JSON');
+    } catch (err) {
+      console.error('[TTS] ❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', err.message);
+    }
     
-    console.log('[initializeFirebaseAdmin] Service account email:', serviceAccount.client_email);
-    console.log('[initializeFirebaseAdmin] Project ID:', serviceAccount.project_id);
-    console.log('[initializeFirebaseAdmin] Storage bucket:', process.env.FIREBASE_STORAGE_BUCKET);
+    if (serviceAccount && process.env.FIREBASE_STORAGE_BUCKET) {
+      firebaseAdminApp = initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      });
+      
+      firestore = getFirestore(firebaseAdminApp);
+      bucket = getStorage(firebaseAdminApp).bucket();
+      console.log('[TTS] ✅ Firebase Admin initialized');
+    } else {
+      console.warn('[TTS] ⚠️ Missing service account or bucket env var');
+    }
     
-    firebaseAdminApp = initializeApp({
-      credential: cert(serviceAccount),
-      projectId: serviceAccount.project_id,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    });
-    
-    firestore = getFirestore(firebaseAdminApp);
-    bucket = getStorage(firebaseAdminApp).bucket();
-    
-    console.log('[initializeFirebaseAdmin] Firebase Admin initialized successfully');
-    console.log('[initializeFirebaseAdmin] Firestore instance created');
-    console.log('[initializeFirebaseAdmin] Storage bucket instance created');
+    console.log('[TTS] Firebase Admin initialization complete');
     
     return { firestore, bucket };
   } catch (error) {
@@ -77,8 +82,9 @@ export default async function handler(req, res) {
 
   // Initialize Firebase Admin only when needed
   const { firestore, bucket } = await initializeFirebaseAdmin();
+  console.log('[TTS] Using provider:', tts_provider);
   if (!firestore || !bucket) {
-    console.warn('[generate-audio-async] Firebase not available, using fallback mode');
+    console.warn('[TTS] ⚠️ Firebase not available, using fallback mode');
     // Fallback: generate TTS directly without job tracking
     try {
       console.log('[generate-audio-async] Using fallback mode for provider:', tts_provider);
@@ -93,6 +99,24 @@ export default async function handler(req, res) {
         // For fallback mode, create a temporary job ID
         const tempJobId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         audioUrl = await generateGoogleTTS(text, selectedVoice, tempJobId);
+
+        // 🩹 Manually save job if Firestore is available
+        if (audioUrl && firestore) {
+          const jobId = tempJobId;
+          await firestore.collection('tts_jobs').doc(jobId).set({
+            id: jobId,
+            status: 'completed',
+            audioUrl,
+            result: audioUrl,
+            text,
+            voice_id: selectedVoice,
+            tts_provider,
+            created_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          });
+          console.log('[TTS] ✅ Fallback mode: Google job saved to Firestore');
+        }
+        
         console.log('[generate-audio-async] Google TTS completed successfully, audioUrl type:', typeof audioUrl, 'length:', audioUrl ? audioUrl.length : 'null');
       } else {
         console.error('[generate-audio-async] Unsupported provider:', tts_provider);
