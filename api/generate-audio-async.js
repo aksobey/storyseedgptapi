@@ -62,7 +62,14 @@ export default async function handler(req, res) {
   }
 
   const { text, voice_id, tts_provider = 'elevenlabs' } = req.body;
-  const selectedVoice = voice_id || '21m00Tcm4TlvDq8ikWAM'; // Default ElevenLabs voice
+  
+  // Set appropriate default voice based on provider
+  let selectedVoice;
+  if (tts_provider === 'google') {
+    selectedVoice = voice_id || 'en-US-Wavenet-D'; // Default Google voice
+  } else {
+    selectedVoice = voice_id || '21m00Tcm4TlvDq8ikWAM'; // Default ElevenLabs voice
+  }
 
   if (!text) {
     return res.status(400).json({ error: 'Missing "text" in request body' });
@@ -205,9 +212,11 @@ async function generateTTSAsync(jobId, text, voiceId, ttsProvider) {
         if (jobDoc.exists()) {
           await updateDoc(jobRef, {
             status: 'failed',
-            error: err.message,
+            error: err.message || 'TTS generation failed',
             completed_at: new Date().toISOString()
           });
+        } else {
+          console.warn(`[generateTTSAsync] Failed to update job: jobId not found`);
         }
       }
     } catch (updateError) {
@@ -264,11 +273,16 @@ async function generateElevenLabsTTS(text, voiceId) {
 
 async function generateGoogleTTS(text, voiceId) {
   try {
+    // Validate voice ID format
+    if (!voiceId || !voiceId.startsWith('en-')) {
+      throw new Error(`Invalid or unsupported Google TTS voice: ${voiceId}`);
+    }
+    
     // Dynamic import to avoid module-level crashes
-    const textToSpeech = require('@google-cloud/text-to-speech');
+    const textToSpeech = await import('@google-cloud/text-to-speech');
     
     // Initialize Google Cloud client
-    const client = new textToSpeech.TextToSpeechClient({
+    const client = new textToSpeech.default.TextToSpeechClient({
       credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
     });
 
