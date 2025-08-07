@@ -87,7 +87,6 @@ export default async function handler(req, res) {
   // For Vercel serverless functions, we need to use a different async approach
   // Instead of background processing, we'll use a "delayed response" pattern
   const useVercelAsyncMode = firestore && bucket;
-  console.log('[TTS] Use Vercel async mode:', useVercelAsyncMode);
   
   if (!useVercelAsyncMode) {
           console.warn('[TTS] ⚠️ Using fallback mode (synchronous TTS generation)');
@@ -263,12 +262,11 @@ export default async function handler(req, res) {
       await firestore.collection('tts_jobs').doc(jobId).set(updateData, { merge: true });
       console.log(`[generate-audio-async] Job ${jobId} updated to status: ${updateData.status}`);
 
-      // Return the completed result immediately
+      // Return job ID for async processing
       if (audioUrl) {
         return res.status(200).json({
           success: true,
-          audioUrl: storageUrl, // Use storage URL instead of data URL
-          status: 'completed',
+          status: 'processing',
           jobId
         });
       } else {
