@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, voice_id, tts_provider = 'elevenlabs' } = req.body;
+  const { text, voice_id, tts_provider = 'elevenlabs', userId = null, storyId = null } = req.body;
   
   // Set appropriate default voice based on provider
   let selectedVoice;
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
         console.log('[generate-audio-async] Attempting Google TTS...');
         // For fallback mode, create a temporary job ID
         const tempJobId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        audioUrl = await generateGoogleTTS(text, selectedVoice, tempJobId);
+        audioUrl = await generateGoogleTTS(text, selectedVoice, tempJobId, userId, storyId);
 
         // 🩹 Manually save job if Firestore is available
         if (audioUrl && firestore) {
@@ -161,7 +161,9 @@ export default async function handler(req, res) {
     tts_provider,
     created_at: new Date().toISOString(),
     result: null,
-    error: null
+    error: null,
+    userId: userId || null,
+    storyId: storyId || null
   };
 
   try {
@@ -198,7 +200,7 @@ export default async function handler(req, res) {
       } else if (tts_provider === 'google') {
         console.log(`[generate-audio-async] Using Google TTS for jobId: ${jobId}`);
         try {
-          audioUrl = await generateGoogleTTS(text, selectedVoice, jobId);
+          audioUrl = await generateGoogleTTS(text, selectedVoice, jobId, userId, storyId);
           console.log(`[generate-audio-async] Google TTS completed for jobId: ${jobId}, audioUrl length: ${audioUrl?.length || 'null'}`);
         } catch (ttsError) {
           console.error(`[generate-audio-async] Google TTS failed for jobId: ${jobId}:`, ttsError);
@@ -224,7 +226,8 @@ export default async function handler(req, res) {
           const audioBuffer = Buffer.from(base64Data, 'base64');
           
           // Upload to Firebase Storage
-          const filePath = `tts_audio/${jobId}.mp3`;
+          const pathFromUser = userId ? `users/${userId}/audio/${storyId || jobId}.mp3` : `tts_audio/${jobId}.mp3`;
+          const filePath = pathFromUser;
           const file = bucket.file(filePath);
           
           await file.save(audioBuffer, {
@@ -452,7 +455,7 @@ async function generateElevenLabsTTS(text, voiceId) {
   }
 }
 
-async function generateGoogleTTS(text, voiceId, jobId) {
+async function generateGoogleTTS(text, voiceId, jobId, userId = null, storyId = null) {
   try {
     if (!voiceId || !voiceId.startsWith('en-')) {
       throw new Error(`Invalid or unsupported Google TTS voice: ${voiceId}`);
@@ -498,16 +501,28 @@ async function generateGoogleTTS(text, voiceId, jobId) {
     console.log('[generateGoogleTTS] Google TTS API response received');
     console.log('[generateGoogleTTS] Audio content length:', response.audioContent.length);
 
+    // Try to upload to Firebase Storage if available; otherwise return a data URL
     const { bucket } = await initializeFirebaseAdmin();
-    const filePath = `tts_audio/google_${jobId}.mp3`;
+
+    if (!bucket) {
+      console.warn('[generateGoogleTTS] No Firebase Storage bucket available; returning data URL');
+      const base64 = Buffer.from(response.audioContent).toString('base64');
+      const dataUrl = `data:audio/mpeg;base64,${base64}`;
+      return dataUrl;
+    }
+
+    const filePath = userId ? `users/${userId}/audio/${storyId || jobId}.mp3` : `tts_audio/google_${jobId}.mp3`;
     const file = bucket.file(filePath);
 
     console.log('[generateGoogleTTS] Uploading to Firebase Storage:', filePath);
 
     await file.save(response.audioContent, {
       metadata: { contentType: 'audio/mpeg' },
-      public: true
+      resumable: false
     });
+
+    // Make publicly accessible
+    await file.makePublic();
 
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
     console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', publicUrl);
