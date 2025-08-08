@@ -222,8 +222,10 @@ export default async function handler(req, res) {
       const audioUrlSize = audioUrl ? audioUrl.length : 0;
       console.log(`[generate-audio-async] Audio URL size: ${audioUrlSize} characters`);
       
-      // If audio URL is large (>500KB) or we have bucket, try to upload to storage
-      if (audioUrl && (audioUrlSize > 500000 || bucket)) {
+      // If audio URL is a data URL, upload to storage; if it's already a URL, just use it
+      const isDataUrl = typeof audioUrl === 'string' && audioUrl.startsWith('data:audio');
+      // If audio is large or bucket exists and it's a data URL, upload. Otherwise keep as-is
+      if (audioUrl && isDataUrl && (audioUrlSize > 500000 || bucket)) {
         try {
           console.log(`[generate-audio-async] Uploading audio to Firebase Storage for jobId: ${jobId}`);
           
