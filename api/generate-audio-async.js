@@ -1,5 +1,11 @@
 // Firebase Admin imports - will be loaded only when needed
 let firebaseAdminApp, firestore, bucket;
+import { randomUUID } from 'crypto';
+
+function sanitizePathSegment(value) {
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_');
+}
 
 // Initialize Firebase Admin function - called only when needed
 async function initializeFirebaseAdmin() {
@@ -226,20 +232,20 @@ export default async function handler(req, res) {
           const audioBuffer = Buffer.from(base64Data, 'base64');
           
           // Upload to Firebase Storage
-          const pathFromUser = userId ? `users/${userId}/audio/${storyId || jobId}.mp3` : `tts_audio/${jobId}.mp3`;
+          const safeBaseName = sanitizePathSegment(storyId || jobId) || String(Date.now());
+          const pathFromUser = userId ? `users/${sanitizePathSegment(userId)}/audio/${safeBaseName}.mp3` : `tts_audio/${safeBaseName}.mp3`;
           const filePath = pathFromUser;
           const file = bucket.file(filePath);
           
+          const token = randomUUID();
           await file.save(audioBuffer, {
-            metadata: { contentType: 'audio/mpeg' },
+            metadata: { 
+              contentType: 'audio/mpeg',
+              metadata: { firebaseStorageDownloadTokens: token }
+            },
             resumable: false
           });
-          
-          // Make the file publicly accessible
-          await file.makePublic();
-          
-          // Get public URL
-          storageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+          storageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
           console.log(`[generate-audio-async] Audio uploaded to: ${storageUrl}`);
           
         } catch (uploadError) {
@@ -511,23 +517,25 @@ async function generateGoogleTTS(text, voiceId, jobId, userId = null, storyId = 
       return dataUrl;
     }
 
-    const filePath = userId ? `users/${userId}/audio/${storyId || jobId}.mp3` : `tts_audio/google_${jobId}.mp3`;
+    const safeBaseName = sanitizePathSegment(storyId || jobId) || String(Date.now());
+    const filePath = userId ? `users/${sanitizePathSegment(userId)}/audio/${safeBaseName}.mp3` : `tts_audio/google_${sanitizePathSegment(jobId)}.mp3`;
     const file = bucket.file(filePath);
 
     console.log('[generateGoogleTTS] Uploading to Firebase Storage:', filePath);
 
+    const token = randomUUID();
     await file.save(response.audioContent, {
-      metadata: { contentType: 'audio/mpeg' },
+      metadata: { 
+        contentType: 'audio/mpeg',
+        metadata: { firebaseStorageDownloadTokens: token }
+      },
       resumable: false
     });
 
-    // Make publicly accessible
-    await file.makePublic();
-
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
-    console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', publicUrl);
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+    console.log('[generateGoogleTTS] Successfully uploaded to Firebase Storage, URL:', downloadUrl);
     
-    return publicUrl;
+    return downloadUrl;
 
   } catch (error) {
     console.error('[generateGoogleTTS] Error:', error.message);
