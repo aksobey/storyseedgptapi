@@ -42,14 +42,6 @@
     { "src": "/api/generate-story-cover", "dest": "api/generate-story-cover.js" },
     { "src": "/api/_version", "dest": "api/_version.js" }
   ],
-  "functions": {
-    "api/generate-character.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/_version.js": {
-      "maxDuration": 10,
-      "memory": 256
-    }
-  }
+
+  
 } 
