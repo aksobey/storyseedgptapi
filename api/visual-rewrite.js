@@ -1,41 +1,24 @@
 import OpenAI from "openai";
+import applyCors from "../lib/cors";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const MODEL = process.env.OPENAI_MODEL_MISC || process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { description } = req.body;
-
-  if (!description) {
-    return res.status(400).json({ error: "Missing description" });
-  }
-
-  const prompt = `Rewrite the following as a purely visual, present-tense scene description for an illustrator. Do not mention or imply any text, writing, labels, captions, or book pages. Focus only on what should be seen, not read. Use a cinematic, child-friendly, colorful style.\n\nDescription: ${description}`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 300,
-    });
-
-    const result = completion.choices[0].message.content;
-    res.status(200).json({ visualDescription: result.trim() });
-  } catch (error) {
-    console.error("Error in visual-rewrite:", error);
-    res.status(500).json({ error: "Failed to rewrite description." });
-  }
+	if (applyCors(req, res)) return;
+	if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+	const { description } = req.body || {};
+	if (!description) return res.status(400).json({ error: "Missing description" });
+	try {
+		const completion = await openai.chat.completions.create({
+			model: MODEL,
+			messages: [{ role: "user", content: `Rewrite this for a family-friendly visual prompt, avoiding text artifacts: ${description}` }],
+			max_tokens: 200,
+		});
+		res.status(200).json({ prompt: completion.choices?.[0]?.message?.content || "", model: MODEL });
+	} catch (error) {
+		const code = error?.status || 500;
+		const type = error?.status === 429 ? "rate_limit" : (error?.status >= 500 ? "upstream_5xx" : "unknown");
+		res.status(code).json({ error: "Failed to rewrite visually.", type });
+	}
 } 
