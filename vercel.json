@@ -43,6 +43,11 @@
     { "src": "/api/_version", "dest": "api/_version.js" }
   ],
   "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 60,
+      "memory": 1024
+    },
     "api/generate-character.js": {
       "maxDuration": 60,
       "memory": 1024

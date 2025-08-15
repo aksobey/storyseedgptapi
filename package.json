@@ -1,8 +1,14 @@
 {
   "name": "storyseedgptapi",
   "version": "1.0.0",
+  "private": true,
   "main": "api/generate-character.js",
   "type": "module",
+  "engines": { "node": ">=18 <=22" },
+  "scripts": {
+    "build": "echo \"no build step\"",
+    "vercel-build": "echo \"no build step\""
+  },
   "dependencies": {
     "openai": "^4.0.0",
     "replicate": "^1.0.1",
