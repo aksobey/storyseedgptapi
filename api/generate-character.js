@@ -18,7 +18,8 @@ export default async function handler(req, res) {
 			{ role: 'system', content: 'You are StorySeed\'s character writer. Reply with plain text only (no JSON, no code blocks). Keep it short and friendly.' },
 			{ role: 'user', content: prompt }
 		];
-		const params = { model: MODEL, messages, tool_choice: 'none' };
+		// No tools are provided; omit tool_choice to satisfy stricter validation on newer models
+		const params = { model: MODEL, messages };
 		if (isGpt5(MODEL)) params.max_completion_tokens = 800; else params.max_tokens = 800;
 
 		const completion = await openai.chat.completions.create(params);
