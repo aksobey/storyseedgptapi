@@ -1,5 +1,6 @@
 // pages/api/generate-story-cover.js
 import applyCors from "../lib/cors.js";
+import Replicate from "replicate";
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -19,73 +20,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing characterImageUrl or worldImageUrl" });
   }
 
-  const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-  const REPLICATE_MODEL_VERSION_COVER = process.env.REPLICATE_MODEL_VERSION_COVER;
+  const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY;
   if (!REPLICATE_API_TOKEN) {
     return res.status(500).json({ error: "Missing REPLICATE_API_TOKEN" });
   }
-  if (!REPLICATE_MODEL_VERSION_COVER) {
-    return res.status(500).json({ error: "Missing REPLICATE_MODEL_VERSION_COVER" });
-  }
 
   try {
-    // Compose input for multi-image model. Many Replicate models accept an array of URLs under `images`.
-    // We also allow arbitrary keys via `options` for model-specific tuning.
+    // Use Replicate SDK without specifying version; uses latest published version.
+    const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
+
     const input = {
-      prompt,
+      prompt: prompt || '',
       input_image_1: characterImageUrl,
       input_image_2: worldImageUrl,
-      aspect_ratio: (options && options.aspect_ratio) || '3:4',
-      output_format: 'jpg'
+      aspect_ratio: (options && options.aspect_ratio) || '3:4'
     };
 
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        version: REPLICATE_MODEL_VERSION_COVER,
-        input
-      })
-    });
-    let data = await response.json();
+    const output = await replicate.run("flux-kontext-apps/multi-image-kontext-max", { input });
+    // Output may be a string URL or an array of URLs
+    let imageUrl = null;
+    if (typeof output === 'string') imageUrl = output;
+    else if (Array.isArray(output) && typeof output[0] === 'string') imageUrl = output[0];
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: "Replicate cover request failed",
-        detail: data?.detail || data?.error || data,
-        status: response.status
-      });
+    if (!imageUrl) {
+      return res.status(502).json({ error: "Replicate returned no URL", raw: output });
     }
-
-    // Poll for completion if not succeeded
-    let attempts = 0;
-    if (!data?.urls?.get) {
-      return res.status(502).json({ error: "Unexpected Replicate response (missing prediction URL)", raw: data });
-    }
-
-    while (data.status !== "succeeded" && data.status !== "failed" && attempts < 30) {
-      await new Promise(res => setTimeout(res, 2000));
-      const pollResponse = await fetch(data.urls.get, {
-        headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
-      });
-      data = await pollResponse.json();
-      if (!pollResponse.ok) {
-        return res.status(502).json({ error: "Replicate polling failed", raw: data });
-      }
-      attempts++;
-    }
-
-    if (data.status === "succeeded" && data.output) {
-      let imageUrl = null;
-      if (typeof data.output === "string") imageUrl = data.output;
-      else if (Array.isArray(data.output) && typeof data.output[0] === "string") imageUrl = data.output[0];
-      return res.status(200).json({ imageUrl });
-    } else {
-      return res.status(500).json({ error: "No valid image URL from Replicate", raw: data });
-    }
+    return res.status(200).json({ imageUrl });
   } catch (error) {
     return res.status(500).json({ error: "Replicate image generation failed", detail: error?.message || String(error) });
   }
