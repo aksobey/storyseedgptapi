@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 			{ role: 'system', content: 'You are StorySeed\'s character writer. Reply with plain text only (no JSON, no code blocks). Keep it short and friendly.' },
 			{ role: 'user', content: prompt }
 		];
-		const params = { model: MODEL, messages };
+		const params = { model: MODEL, messages, tool_choice: 'none' };
 		if (isGpt5(MODEL)) params.max_completion_tokens = 800; else params.max_tokens = 800;
 
 		const completion = await openai.chat.completions.create(params);
@@ -26,11 +26,11 @@ export default async function handler(req, res) {
 		if (typeof text !== 'string') text = '';
 		text = text.trim();
 
-		// Fallback: if empty, try to stringify the message for debugging instead of returning blank
+		// If empty content but tool calls were attempted, surface a clear error
 		if (!text) {
-			const msg = completion.choices?.[0]?.message || null;
-			if (msg) {
-				try { text = JSON.stringify(msg); } catch { /* ignore */ }
+			const toolCalls = completion.choices?.[0]?.message?.tool_calls || null;
+			if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
+				return res.status(502).json({ error: 'Model attempted a tool call instead of text.', type: 'tool_call', model: MODEL });
 			}
 		}
 
