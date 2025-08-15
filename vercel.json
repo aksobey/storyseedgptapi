@@ -41,7 +41,5 @@
     { "src": "/api/generate-replicate-image", "dest": "api/generate-replicate-image.js" },
     { "src": "/api/generate-story-cover", "dest": "api/generate-story-cover.js" },
     { "src": "/api/_version", "dest": "api/_version.js" }
-  ],
-
-  
-} 
+  ]
+}
