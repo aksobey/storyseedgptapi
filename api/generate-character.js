@@ -14,13 +14,34 @@ export default async function handler(req, res) {
 	if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
 	try {
-		const params = { model: MODEL, messages: [{ role: "user", content: prompt }] };
+		const messages = [
+			{ role: 'system', content: 'You are StorySeed\'s character writer. Reply with plain text only (no JSON, no code blocks). Keep it short and friendly.' },
+			{ role: 'user', content: prompt }
+		];
+		const params = { model: MODEL, messages };
 		if (isGpt5(MODEL)) params.max_completion_tokens = 800; else params.max_tokens = 800;
+
 		const completion = await openai.chat.completions.create(params);
-		res.status(200).json({ character: completion.choices?.[0]?.message?.content || "", model: MODEL });
+		let text = completion.choices?.[0]?.message?.content;
+		if (typeof text !== 'string') text = '';
+		text = text.trim();
+
+		// Fallback: if empty, try to stringify the message for debugging instead of returning blank
+		if (!text) {
+			const msg = completion.choices?.[0]?.message || null;
+			if (msg) {
+				try { text = JSON.stringify(msg); } catch { /* ignore */ }
+			}
+		}
+
+		if (!text) {
+			return res.status(502).json({ error: 'Empty response from model', type: 'upstream_empty', model: MODEL });
+		}
+
+		res.status(200).json({ character: text, model: MODEL });
 	} catch (error) {
 		const code = error?.status || 500;
 		const type = error?.status === 429 ? "rate_limit" : (error?.status >= 500 ? "upstream_5xx" : (error?.status >= 400 ? "validation" : "unknown"));
-		res.status(code).json({ error: "Failed to generate character.", type, detail: error?.message });
+		res.status(code).json({ error: "Failed to generate character.", type, detail: error?.message, model: MODEL });
 	}
 }
