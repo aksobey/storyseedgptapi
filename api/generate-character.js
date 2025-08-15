@@ -34,6 +34,11 @@ export default async function handler(req, res) {
 
 	let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body); } catch {} }
 	const { prompt } = body || {};
+
+	// WHY: Dry-run path to verify routing without calling OpenAI
+	if (req.query && String(req.query.dry_run) === '1') {
+		return res.status(200).json({ ok: true, route: 'generate-character' });
+	}
 	if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
 	try {
@@ -45,7 +50,15 @@ export default async function handler(req, res) {
 		const params = { model: MODEL, messages };
 		if (isGpt5(MODEL)) params.max_completion_tokens = 800; else params.max_tokens = 800;
 
-		const completion = await openai.chat.completions.create(params);
+		// WHY: Pre-platform timeout to avoid Vercel hard timeouts
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 28000);
+		let completion;
+		try {
+			completion = await openai.chat.completions.create({ ...params, signal: controller.signal });
+		} finally {
+			clearTimeout(timeoutId);
+		}
 		const { text, meta } = normalizeCompletion(completion);
 		if (!text) {
 			return res.status(502).json({ error: 'Empty response from model', type: 'upstream_empty', model: MODEL });

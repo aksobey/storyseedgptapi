@@ -37,5 +37,15 @@
     { "src": "/api/check-image-config", "dest": "api/check-image-config.js" },
     { "src": "/api/generate-stable-diffusion-image", "dest": "api/generate-stable-diffusion-image.js" },
     { "src": "/api/generate-replicate-image", "dest": "api/generate-replicate-image.js" }
-  ]
+  ],
+  "functions": {
+    "api/generate-character.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/_version.js": {
+      "maxDuration": 10,
+      "memory": 256
+    }
+  }
 } 
