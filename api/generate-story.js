@@ -6,6 +6,7 @@ const openai = new OpenAI({
 });
 
 const MODEL = process.env.OPENAI_MODEL_STORY || process.env.OPENAI_MODEL || "gpt-4o";
+const isGpt5 = (name) => typeof name === 'string' && name.toLowerCase().includes('gpt-5');
 
 export default async function handler(req, res) {
 	// CORS
@@ -26,11 +27,17 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		const completion = await openai.chat.completions.create({
+		const params = {
 			model: MODEL,
 			messages: [{ role: "user", content: prompt }],
-			max_tokens: 1200,
-		});
+		};
+		if (isGpt5(MODEL)) {
+			params.max_completion_tokens = 1200;
+		} else {
+			params.max_tokens = 1200;
+		}
+
+		const completion = await openai.chat.completions.create(params);
 
 		const storyResult = completion.choices?.[0]?.message?.content || "";
 		res.status(200).json({ story: storyResult, model: MODEL });
