@@ -34,6 +34,8 @@ export default async function handler(req, res) {
     const input = {
       prompt,
       images: [characterImageUrl, worldImageUrl],
+      image_1: characterImageUrl,
+      image_2: worldImageUrl,
       output_format: 'jpg',
       ...(options && typeof options === 'object' ? options : {})
     };
@@ -51,14 +53,29 @@ export default async function handler(req, res) {
     });
     let data = await response.json();
 
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: "Replicate cover request failed",
+        detail: data?.detail || data?.error || data,
+        status: response.status
+      });
+    }
+
     // Poll for completion if not succeeded
     let attempts = 0;
+    if (!data?.urls?.get) {
+      return res.status(502).json({ error: "Unexpected Replicate response (missing prediction URL)", raw: data });
+    }
+
     while (data.status !== "succeeded" && data.status !== "failed" && attempts < 30) {
       await new Promise(res => setTimeout(res, 2000));
       const pollResponse = await fetch(data.urls.get, {
         headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
       });
       data = await pollResponse.json();
+      if (!pollResponse.ok) {
+        return res.status(502).json({ error: "Replicate polling failed", raw: data });
+      }
       attempts++;
     }
 
