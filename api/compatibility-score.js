@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import applyCors from "../lib/cors";
+import applyCors from "../lib/cors.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = process.env.OPENAI_MODEL_MISC || process.env.OPENAI_MODEL || "gpt-4o-mini";
