@@ -33,11 +33,10 @@ export default async function handler(req, res) {
     // We also allow arbitrary keys via `options` for model-specific tuning.
     const input = {
       prompt,
-      images: [characterImageUrl, worldImageUrl],
-      image_1: characterImageUrl,
-      image_2: worldImageUrl,
-      output_format: 'jpg',
-      ...(options && typeof options === 'object' ? options : {})
+      input_image_1: characterImageUrl,
+      input_image_2: worldImageUrl,
+      aspect_ratio: (options && options.aspect_ratio) || '3:4',
+      output_format: 'jpg'
     };
 
     const response = await fetch("https://api.replicate.com/v1/predictions", {
