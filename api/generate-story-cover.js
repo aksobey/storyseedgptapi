@@ -29,62 +29,65 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Compose input per model contract
-    const input = {
+    const tryOnce = async (input) => {
+      const createResp = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Token ${REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ version: REPLICATE_MODEL_VERSION_COVER, input })
+      });
+      let data = await createResp.json();
+      if (!createResp.ok) {
+        return { ok: false, status: createResp.status, data };
+      }
+      if (!data?.urls?.get) {
+        return { ok: false, status: 502, data: { error: 'Missing prediction URL', raw: data } };
+      }
+      let attempts = 0;
+      while (data.status !== "succeeded" && data.status !== "failed" && data.status !== "canceled" && attempts < 30) {
+        await new Promise(r => setTimeout(r, 2000));
+        const pollResponse = await fetch(data.urls.get, {
+          headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
+        });
+        const polled = await pollResponse.json();
+        if (!pollResponse.ok) {
+          return { ok: false, status: 502, data: { error: 'Polling failed', raw: polled } };
+        }
+        data = polled;
+        attempts++;
+      }
+      if (data.status === "succeeded" && data.output) {
+        let imageUrl = null;
+        if (typeof data.output === "string") imageUrl = data.output;
+        else if (Array.isArray(data.output) && typeof data.output[0] === "string") imageUrl = data.output[0];
+        if (imageUrl) return { ok: true, imageUrl };
+        return { ok: false, status: 502, data: { error: 'No output URL', raw: data } };
+      }
+      return { ok: false, status: 502, data };
+    };
+
+    // First attempt with requested aspect ratio (default 3:4)
+    const baseInput = {
       prompt: prompt || '',
       input_image_1: characterImageUrl,
       input_image_2: worldImageUrl,
       aspect_ratio: (options && options.aspect_ratio) || '3:4'
     };
 
-    // Create prediction via REST with explicit version
-    const createResp = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ version: REPLICATE_MODEL_VERSION_COVER, input })
-    });
-    let data = await createResp.json();
-    if (!createResp.ok) {
-      return res.status(createResp.status).json({
-        error: "Replicate cover request failed",
-        detail: data?.detail || data?.error || data,
-        status: createResp.status
-      });
-    }
-
-    if (!data?.urls?.get) {
-      return res.status(502).json({ error: "Unexpected Replicate response (missing prediction URL)", raw: data });
-    }
-
-    // Poll for completion
-    let attempts = 0;
-    while (data.status !== "succeeded" && data.status !== "failed" && attempts < 30) {
-      await new Promise(r => setTimeout(r, 2000));
-      const pollResponse = await fetch(data.urls.get, {
-        headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
-      });
-      const polled = await pollResponse.json();
-      if (!pollResponse.ok) {
-        return res.status(502).json({ error: "Replicate polling failed", raw: polled });
+    let attempt = await tryOnce(baseInput);
+    if (!attempt.ok) {
+      // Fallback: try square aspect ratio which is broadly supported
+      const fallbackInput = { ...baseInput, aspect_ratio: '1:1' };
+      const second = await tryOnce(fallbackInput);
+      if (second.ok) {
+        return res.status(200).json({ imageUrl: second.imageUrl, note: 'fallback_aspect_ratio_1_1' });
       }
-      data = polled;
-      attempts++;
+      const detail = attempt.data?.detail || attempt.data?.error || attempt.data;
+      return res.status(attempt.status || 502).json({ error: 'Prediction failed', detail, raw: attempt.data });
     }
-
-    if (data.status === "succeeded" && data.output) {
-      let imageUrl = null;
-      if (typeof data.output === "string") imageUrl = data.output;
-      else if (Array.isArray(data.output) && typeof data.output[0] === "string") imageUrl = data.output[0];
-      if (!imageUrl) {
-        return res.status(502).json({ error: "Replicate returned no URL", raw: data });
-      }
-      return res.status(200).json({ imageUrl });
-    }
-
-    return res.status(502).json({ error: "Prediction failed", raw: data });
+    return res.status(200).json({ imageUrl: attempt.imageUrl });
   } catch (error) {
     return res.status(500).json({ error: "Replicate image generation failed", detail: error?.message || String(error) });
   }
