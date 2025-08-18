@@ -55,7 +55,8 @@ export default async function handler(req, res) {
 		const timeoutId = setTimeout(() => controller.abort(), 28000);
 		let completion;
 		try {
-			completion = await openai.chat.completions.create({ ...params, signal: controller.signal });
+			// Pass AbortSignal via client options, not inside JSON payload
+			completion = await openai.chat.completions.create(params, { signal: controller.signal });
 		} finally {
 			clearTimeout(timeoutId);
 		}
