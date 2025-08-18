@@ -1,0 +1,104 @@
+export const config = {
+  runtime: 'nodejs'
+};
+
+// Minimal ElevenLabs Music integration (debug/MVP)
+// Expects env ELEVENLABS_API_KEY and optional ELEVEN_MUSIC_ENDPOINT
+// Falls back to returning a base64 data URL in JSON: { success, audioUrl }
+
+export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Missing ElevenLabs API key' });
+  }
+
+  try {
+    const {
+      prompt,
+      durationSeconds = 12,
+      style = 'storybook, whimsical, kid-friendly, orchestral-lite, no vocals, loopable',
+      loop = true
+    } = req.body || {};
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Missing or invalid "prompt"' });
+    }
+
+    // Endpoint is configurable to allow quick fixes without redeploy
+    const endpoint = process.env.ELEVEN_MUSIC_ENDPOINT || 'https://api.elevenlabs.io/v1/music/generate';
+
+    // Build a conservative payload. The exact schema may vary by access tier;
+    // using generic fields that many text-to-music APIs accept.
+    const payload = {
+      prompt: `${prompt}. Style: ${style}. ${loop ? 'Loopable' : ''}`.trim(),
+      duration_seconds: Math.max(5, Math.min(30, Number(durationSeconds) || 12)),
+      // Room for provider-specific options without breaking clients
+      options: {
+        loop,
+        safe: true
+      }
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const maybeJson = await safeReadJson(response);
+      const text = !maybeJson ? await response.text() : undefined;
+      return res.status(response.status).json({
+        error: 'Music generation failed',
+        details: maybeJson || text || `HTTP ${response.status}`
+      });
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    // Prefer audio buffer; fall back to JSON contract if provider returns JSON
+    if (contentType.includes('audio/')) {
+      const audioBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(audioBuffer).toString('base64');
+      const dataUrl = `data:audio/mpeg;base64,${base64}`;
+      return res.status(200).json({ success: true, audioUrl: dataUrl, provider: 'elevenlabs' });
+    } else {
+      const data = await response.json();
+      // If provider returns a URL directly
+      if (data && (data.audioUrl || data.url)) {
+        return res.status(200).json({ success: true, audioUrl: data.audioUrl || data.url, provider: 'elevenlabs' });
+      }
+      return res.status(200).json({ success: true, result: data, provider: 'elevenlabs' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error', details: err.message });
+  }
+}
+
+async function safeReadJson(response) {
+  try {
+    const text = await response.text();
+    return JSON.parse(text);
+  } catch (_) {
+    return null;
+  }
+}
+
+
