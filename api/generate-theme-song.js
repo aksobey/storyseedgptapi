@@ -6,16 +6,10 @@ export const config = {
 // Expects env ELEVENLABS_API_KEY and optional ELEVEN_MUSIC_ENDPOINT
 // Falls back to returning a base64 data URL in JSON: { success, audioUrl }
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import applyCors from "../lib/cors.js";
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
