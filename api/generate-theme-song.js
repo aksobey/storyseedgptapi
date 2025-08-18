@@ -22,9 +22,6 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Missing ElevenLabs API key' });
-  }
 
   try {
     const {
@@ -53,6 +50,12 @@ export default async function handler(req, res) {
       }
     };
 
+    // Prefer ElevenLabs Music first when key has access
+    if (!apiKey) {
+      // If no EL key, go straight to Replicate fallback
+      return await tryReplicateFallback({ prompt, durationSeconds, loop, res });
+    }
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -65,6 +68,11 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const maybeJson = await safeReadJson(response);
+      // If limited access, try Replicate fallback
+      const limited = maybeJson && (maybeJson.detail?.status === 'limited_access' || maybeJson.status === 'limited_access');
+      if (response.status === 403 && limited) {
+        return await tryReplicateFallback({ prompt, durationSeconds, loop, res, providerError: maybeJson });
+      }
       const text = !maybeJson ? await response.text() : undefined;
       return res.status(response.status).json({
         error: 'Music generation failed',
@@ -98,6 +106,67 @@ async function safeReadJson(response) {
     return JSON.parse(text);
   } catch (_) {
     return null;
+  }
+}
+
+// Replicate fallback using a configurable model version
+async function tryReplicateFallback({ prompt, durationSeconds, loop, res, providerError = null }) {
+  try {
+    const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY;
+    const REPLICATE_MODEL_VERSION_MUSIC = process.env.REPLICATE_MODEL_VERSION_MUSIC;
+    if (!REPLICATE_API_TOKEN || !REPLICATE_MODEL_VERSION_MUSIC) {
+      return res.status(403).json({
+        error: 'Music generation failed',
+        details: providerError || { error: 'Replicate fallback unavailable: missing REPLICATE_API_TOKEN or REPLICATE_MODEL_VERSION_MUSIC' }
+      });
+    }
+
+    const createResp = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        version: REPLICATE_MODEL_VERSION_MUSIC,
+        input: {
+          prompt,
+          duration: Math.max(5, Math.min(30, Number(durationSeconds) || 12)),
+          loop: !!loop
+        }
+      })
+    });
+
+    const created = await createResp.json();
+    if (!createResp.ok || !created?.urls?.get) {
+      return res.status(createResp.status || 502).json({ error: 'Replicate create failed', details: created });
+    }
+
+    let attempts = 0;
+    let data = created;
+    while (data.status !== 'succeeded' && data.status !== 'failed' && data.status !== 'canceled' && attempts < 60) {
+      await new Promise(r => setTimeout(r, 2000));
+      const poll = await fetch(data.urls.get, { headers: { 'Authorization': `Token ${REPLICATE_API_TOKEN}` } });
+      const polled = await poll.json();
+      if (!poll.ok) {
+        return res.status(502).json({ error: 'Replicate poll failed', details: polled });
+      }
+      data = polled;
+      attempts++;
+    }
+
+    if (data.status === 'succeeded' && data.output) {
+      // Many music models return an array of URLs; pick the first if string
+      let audioUrl = null;
+      if (typeof data.output === 'string') audioUrl = data.output;
+      else if (Array.isArray(data.output) && typeof data.output[0] === 'string') audioUrl = data.output[0];
+      if (audioUrl) return res.status(200).json({ success: true, audioUrl, provider: 'replicate' });
+      return res.status(502).json({ error: 'Replicate success but no output URL', details: data });
+    }
+
+    return res.status(502).json({ error: 'Replicate generation failed', details: data });
+  } catch (e) {
+    return res.status(500).json({ error: 'Replicate fallback error', details: e?.message || String(e) });
   }
 }
 
