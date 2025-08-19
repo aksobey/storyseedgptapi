@@ -20,6 +20,7 @@
     { "src": "api/generate-replicate-image.js", "use": "@vercel/node" },
     { "src": "api/generate-story-cover.js", "use": "@vercel/node" },
     { "src": "api/generate-theme-song.js", "use": "@vercel/node" },
+    { "src": "api/generate-theme-lyrics.js", "use": "@vercel/node" },
     { "src": "api/_version.js", "use": "@vercel/node" }
   ],
   "routes": [
@@ -42,6 +43,7 @@
     { "src": "/api/generate-replicate-image", "dest": "api/generate-replicate-image.js" },
     { "src": "/api/generate-story-cover", "dest": "api/generate-story-cover.js" },
     { "src": "/api/generate-theme-song", "dest": "api/generate-theme-song.js" },
+    { "src": "/api/generate-theme-lyrics", "dest": "api/generate-theme-lyrics.js" },
     { "src": "/api/_version", "dest": "api/_version.js" }
   ]
 }
