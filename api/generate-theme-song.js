@@ -45,10 +45,10 @@ export default async function handler(req, res) {
     // Strengthen prompt with explicit duration + lyrics hint for providers that rely on text prompt
     const promptParts = [
       prompt,
-      lyrics ? `Lyrics: ${lyrics}` : '',
       `Style: ${style}`,
       `${loop ? 'Loopable' : ''}`,
-      `Duration: ${dur}s`
+      `Duration: ${dur}s`,
+      vocalsStyle ? `Vocals: ${vocalsStyle}` : ''
     ].filter(Boolean);
 
     const payload = {
@@ -58,8 +58,8 @@ export default async function handler(req, res) {
       duration: dur,
       length_seconds: dur,
       // If the provider supports structured lyrics/vocals, include them explicitly
-      lyrics: lyrics || undefined,
-      options: { loop, safe: true, vocals: lyrics ? 'lyrics' : (vocalsStyle || 'instrumental') }
+      // Prefer provider-driven lyric generation when vocalsStyle is 'lyrics'
+      options: { loop, safe: true, vocals: vocalsStyle || (lyrics ? 'lyrics' : 'instrumental') }
     };
 
     const response = await fetch(endpoint, {
