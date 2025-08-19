@@ -29,8 +29,10 @@ export default async function handler(req, res) {
     const {
       prompt,
       durationSeconds = 12,
-      style = 'storybook, whimsical, kid-friendly, orchestral-lite, no vocals, loopable',
-      loop = true
+      style = 'storybook, whimsical, kid-friendly, orchestral-lite, loopable',
+      loop = true,
+      lyrics = '',
+      vocalsStyle = ''
     } = req.body || {};
 
     if (!prompt || typeof prompt !== 'string') {
@@ -39,10 +41,25 @@ export default async function handler(req, res) {
 
     const endpoint = process.env.ELEVEN_MUSIC_ENDPOINT || 'https://api.elevenlabs.io/v1/music/generate';
 
+    const dur = Math.max(5, Math.min(30, Number(durationSeconds) || 12));
+    // Strengthen prompt with explicit duration + lyrics hint for providers that rely on text prompt
+    const promptParts = [
+      prompt,
+      lyrics ? `Lyrics: ${lyrics}` : '',
+      `Style: ${style}`,
+      `${loop ? 'Loopable' : ''}`,
+      `Duration: ${dur}s`
+    ].filter(Boolean);
+
     const payload = {
-      prompt: `${prompt}. Style: ${style}. ${loop ? 'Loopable' : ''}`.trim(),
-      duration_seconds: Math.max(5, Math.min(30, Number(durationSeconds) || 12)),
-      options: { loop, safe: true }
+      prompt: promptParts.join('. ').trim(),
+      duration_seconds: dur,
+      // Add common alternative keys for duration for broader compatibility
+      duration: dur,
+      length_seconds: dur,
+      // If the provider supports structured lyrics/vocals, include them explicitly
+      lyrics: lyrics || undefined,
+      options: { loop, safe: true, vocals: lyrics ? 'lyrics' : (vocalsStyle || 'instrumental') }
     };
 
     const response = await fetch(endpoint, {
