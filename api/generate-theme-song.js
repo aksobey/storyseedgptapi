@@ -42,13 +42,13 @@ export default async function handler(req, res) {
     const endpoint = process.env.ELEVEN_MUSIC_ENDPOINT || 'https://api.elevenlabs.io/v1/music/generate';
 
     const dur = Math.max(5, Math.min(30, Number(durationSeconds) || 12));
-    // Strengthen prompt with explicit duration + lyrics hint for providers that rely on text prompt
+    // Provider-safe prompt: avoid flagged tokens (use natural language)
     const promptParts = [
       prompt,
-      `Style: ${style}`,
-      `${loop ? 'Loopable' : ''}`,
-      `Duration: ${dur}s`,
-      vocalsStyle ? `Vocals: ${vocalsStyle}` : ''
+      style && `in a ${style} style`,
+      loop && 'designed to loop cleanly',
+      `lasting about ${dur} seconds`,
+      vocalsStyle === 'lyrics' ? 'featuring gentle, kid-safe vocals and original lyrics' : 'instrumental or very soft wordless vocals'
     ].filter(Boolean);
 
     const payload = {
@@ -57,9 +57,8 @@ export default async function handler(req, res) {
       // Add common alternative keys for duration for broader compatibility
       duration: dur,
       length_seconds: dur,
-      // If the provider supports structured lyrics/vocals, include them explicitly
       // Prefer provider-driven lyric generation when vocalsStyle is 'lyrics'
-      options: { loop, safe: true, vocals: vocalsStyle || (lyrics ? 'lyrics' : 'instrumental') }
+      options: { loop, safe: true, vocals: vocalsStyle || 'instrumental' }
     };
 
     const response = await fetch(endpoint, {
